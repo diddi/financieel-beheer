@@ -55,6 +55,9 @@ class DashboardController {
         // Haal budgetstatus op voor weergave op dashboard
         $budgets = Budget::getBudgetStatus($userId);
         
+        // Bereid gegevens voor de grafiek voor
+        $chartData = $this->prepareChartData($userId);
+        
         // Maak dashboard
         echo "
         <!DOCTYPE html>
@@ -63,32 +66,15 @@ class DashboardController {
             <title>Financieel Beheer - Dashboard</title>
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <script src='https://cdn.tailwindcss.com'></script>
+            <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
         </head>
-        <body class='bg-gray-100 min-h-screen'>
-            <nav class='bg-blue-600 text-white shadow-lg'>
-                <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-                    <div class='flex justify-between h-16'>
-                        <div class='flex'>
-                            <div class='flex-shrink-0 flex items-center'>
-                                <a href='/' class='text-xl font-bold'>Financieel Beheer</a>
-                            </div>
-                            <div class='ml-6 flex items-center space-x-4'>
-                                <a href='/' class='px-3 py-2 rounded-md text-sm font-medium bg-blue-700'>Dashboard</a>
-                                <a href='/transactions' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Transacties</a>
-                                <a href='/accounts' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Rekeningen</a>
-                                <a href='/categories' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Categorieën</a>
-                                <a href='/budgets' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Budgetten</a>
-                            </div>
-                        </div>
-                        <div class='flex items-center'>
-                            <span class='mr-4 text-sm'>" . htmlspecialchars($user['username']) . "</span>
-                            <a href='/logout' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Uitloggen</a>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
-            <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+        <body class='bg-gray-100 min-h-screen'>";
+    
+    // Sluit de echo, voeg het navigatiecomponent toe
+    include_once __DIR__ . '/../views/components/navigation.php';
+    
+    // Hervat de echo voor de rest van de HTML
+    echo " <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
                 <div class='md:flex md:items-center md:justify-between mb-6'>
                     <h1 class='text-2xl font-bold'>Dashboard</h1>
                     <div class='mt-4 md:mt-0'>
@@ -143,6 +129,9 @@ class DashboardController {
                                 €" . number_format($monthIncome - $monthExpenses, 2, ',', '.') . "
                             </div>
                         </div>
+                    </div>
+                    <div class='w-full h-64'>
+                        <canvas id='monthlyChart'></canvas>
                     </div>
                 </div>";
                 
@@ -216,8 +205,131 @@ class DashboardController {
                     
         echo "  </div>
             </div>
+            
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Chart data
+                    const chartData = " . json_encode($chartData) . ";
+                    
+                    // Monthly Chart
+                    const ctx = document.getElementById('monthlyChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.labels,
+                            datasets: [
+                                {
+                                    label: 'Inkomsten',
+                                    data: chartData.income,
+                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                    borderColor: 'rgb(34, 197, 94)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Uitgaven',
+                                    data: chartData.expenses,
+                                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                                    borderColor: 'rgb(239, 68, 68)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '€' + value.toLocaleString('nl-NL');
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            label += '€' + context.raw.toLocaleString('nl-NL', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            });
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            </script>
         </body>
         </html>
         ";
+    }
+    
+    /**
+     * Bereid gegevens voor de maandelijkse grafiek voor
+     */
+    private function prepareChartData($userId) {
+        // Haal transacties op voor de laatste 6 maanden
+        $startDate = date('Y-m-01', strtotime('-5 months'));
+        $endDate = date('Y-m-t'); // laatste dag van de huidige maand
+        
+        $transactions = Transaction::getAllByUser($userId, [
+            'date_from' => $startDate,
+            'date_to' => $endDate
+        ]);
+        
+        // Maak arrays voor elke maand
+        $months = [];
+        $current = new \DateTime($startDate);
+        $last = new \DateTime($endDate);
+        
+        while ($current <= $last) {
+            $yearMonth = $current->format('Y-m');
+            $months[$yearMonth] = [
+                'label' => $current->format('M Y'),
+                'income' => 0,
+                'expenses' => 0
+            ];
+            
+            $current->modify('+1 month');
+        }
+        
+        // Vul de data in
+        foreach ($transactions as $transaction) {
+            $yearMonth = substr($transaction['date'], 0, 7); // Format: YYYY-MM
+            
+            if (isset($months[$yearMonth])) {
+                if ($transaction['type'] === 'income') {
+                    $months[$yearMonth]['income'] += $transaction['amount'];
+                } elseif ($transaction['type'] === 'expense') {
+                    $months[$yearMonth]['expenses'] += $transaction['amount'];
+                }
+            }
+        }
+        
+        // Maak arrays voor Chart.js
+        $labels = [];
+        $income = [];
+        $expenses = [];
+        
+        foreach ($months as $yearMonth => $data) {
+            $labels[] = $data['label'];
+            $income[] = $data['income'];
+            $expenses[] = $data['expenses'];
+        }
+        
+        return [
+            'labels' => $labels,
+            'income' => $income,
+            'expenses' => $expenses
+        ];
     }
 }

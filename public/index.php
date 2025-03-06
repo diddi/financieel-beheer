@@ -20,12 +20,17 @@ require_once ROOT_PATH . '/models/AccountType.php';
 require_once ROOT_PATH . '/models/Category.php';
 require_once ROOT_PATH . '/models/Transaction.php';
 require_once ROOT_PATH . '/models/Budget.php';
+require_once ROOT_PATH . '/models/SavingsGoal.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/DashboardController.php';
 require_once ROOT_PATH . '/controllers/TransactionController.php';
 require_once ROOT_PATH . '/controllers/AccountController.php';
 require_once ROOT_PATH . '/controllers/CategoryController.php';
 require_once ROOT_PATH . '/controllers/BudgetController.php';
+require_once ROOT_PATH . '/controllers/ReportController.php';
+require_once ROOT_PATH . '/controllers/SavingsController.php';
+require_once ROOT_PATH . '/controllers/ExportController.php';
+require_once ROOT_PATH . '/services/ExportService.php';
 
 use App\Core\Router;
 use App\Core\Session;
@@ -122,6 +127,58 @@ if ($uri == '/') {
 } elseif ($uri == '/budgets/delete') {
     $controller = new App\Controllers\BudgetController();
     $controller->delete();
+} elseif ($uri == '/reports') {
+    $controller = new App\Controllers\ReportController();
+    $controller->index();
+} elseif ($uri == '/reports/category') {
+    $controller = new App\Controllers\ReportController();
+    $controller->categoryDetail();
+} 
+// Routes voor Spaardoelen
+elseif ($uri == '/savings') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->index();
+} elseif ($uri == '/savings/create') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->create();
+} elseif ($uri == '/savings/store') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->store();
+} elseif ($uri == '/savings/show') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->show();
+} elseif ($uri == '/savings/edit') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->edit();
+} elseif ($uri == '/savings/update') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->update();
+} elseif ($uri == '/savings/delete') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->delete();
+} elseif ($uri == '/savings/add-contribution') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->addContribution();
+} elseif ($uri == '/savings/remove-contribution') {
+    $controller = new App\Controllers\SavingsController();
+    $controller->removeContribution();
+}
+// Routes voor Export functionaliteit
+elseif ($uri == '/export') {
+    $controller = new App\Controllers\ExportController();
+    $controller->index();
+} elseif ($uri == '/export/transactions') {
+    $controller = new App\Controllers\ExportController();
+    $controller->exportTransactions();
+} elseif ($uri == '/export/budgets') {
+    $controller = new App\Controllers\ExportController();
+    $controller->exportBudgets();
+} elseif ($uri == '/export/accounts') {
+    $controller = new App\Controllers\ExportController();
+    $controller->exportAccounts();
+} elseif ($uri == '/export/download') {
+    $controller = new App\Controllers\ExportController();
+    $controller->download();
 } else {
     // 404 pagina
     http_response_code(404);

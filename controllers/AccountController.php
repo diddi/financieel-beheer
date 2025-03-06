@@ -235,28 +235,13 @@ class AccountController {
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <script src='https://cdn.tailwindcss.com'></script>
         </head>
-        <body class='bg-gray-100 min-h-screen'>
-            <nav class='bg-blue-600 text-white shadow-lg'>
-                <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-                    <div class='flex justify-between h-16'>
-                        <div class='flex'>
-                            <div class='flex-shrink-0 flex items-center'>
-                                <a href='/' class='text-xl font-bold'>Financieel Beheer</a>
-                            </div>
-                            <div class='ml-6 flex items-center space-x-4'>
-                                <a href='/' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Dashboard</a>
-                                <a href='/transactions' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Transacties</a>
-                                <a href='/accounts' class='px-3 py-2 rounded-md text-sm font-medium bg-blue-700'>Rekeningen</a>
-                            </div>
-                        </div>
-                        <div class='flex items-center'>
-                            <a href='/logout' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Uitloggen</a>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
-            <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+        <body class='bg-gray-100 min-h-screen'>";
+    
+    // Sluit de echo, voeg het navigatiecomponent toe
+    include_once __DIR__ . '/../views/components/navigation.php';
+    
+    // Hervat de echo voor de rest van de HTML
+    echo "<div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
                 <div class='md:flex md:items-center md:justify-between mb-6'>
                     <h1 class='text-2xl font-bold'>Rekeningen</h1>
                     <div class='mt-4 md:mt-0'>
