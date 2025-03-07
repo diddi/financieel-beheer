@@ -22,6 +22,7 @@ require_once ROOT_PATH . '/models/Transaction.php';
 require_once ROOT_PATH . '/models/Budget.php';
 require_once ROOT_PATH . '/models/SavingsGoal.php';
 require_once ROOT_PATH . '/models/RecurringTransaction.php';
+require_once ROOT_PATH . '/models/Notification.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/DashboardController.php';
 require_once ROOT_PATH . '/controllers/TransactionController.php';
@@ -31,7 +32,10 @@ require_once ROOT_PATH . '/controllers/BudgetController.php';
 require_once ROOT_PATH . '/controllers/ReportController.php';
 require_once ROOT_PATH . '/controllers/SavingsController.php';
 require_once ROOT_PATH . '/controllers/ExportController.php';
+require_once ROOT_PATH . '/controllers/NotificationController.php';
+require_once ROOT_PATH . '/controllers/RecurringTransactionController.php';
 require_once ROOT_PATH . '/services/ExportService.php';
+require_once ROOT_PATH . '/services/NotificationService.php';
 
 use App\Core\Router;
 use App\Core\Session;
@@ -39,201 +43,83 @@ use App\Core\Session;
 // Start sessie
 Session::start();
 
-// Bepaal de huidige URI
-$uri = $_SERVER['REQUEST_URI'];
-$uri = strtok($uri, '?'); // Verwijder query parameters
+// Initialize the router
+$router = new Router();
 
-// Eenvoudige routing
-if ($uri == '/') {
-    $controller = new App\Controllers\DashboardController();
-    $controller->index();
-} elseif ($uri == '/login') {
-    $controller = new App\Controllers\AuthController();
-    $controller->login();
-} elseif ($uri == '/register') {
-    $controller = new App\Controllers\AuthController();
-    $controller->register();
-} elseif ($uri == '/logout') {
-    $controller = new App\Controllers\AuthController();
-    $controller->logout();
-} elseif ($uri == '/transactions') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->index();
-} elseif ($uri == '/transactions/create') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->create();
-} elseif ($uri == '/transactions/store') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->store();
-} elseif ($uri == '/transactions/edit') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->edit();
-} elseif ($uri == '/transactions/update') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->update();
-} elseif ($uri == '/transactions/delete') {
-    $controller = new App\Controllers\TransactionController();
-    $controller->delete();
-} elseif ($uri == '/accounts') {
-    $controller = new App\Controllers\AccountController();
-    $controller->index();
-} elseif ($uri == '/accounts/create') {
-    $controller = new App\Controllers\AccountController();
-    $controller->create();
-} elseif ($uri == '/accounts/store') {
-    $controller = new App\Controllers\AccountController();
-    $controller->store();
-} elseif ($uri == '/accounts/edit') {
-    $controller = new App\Controllers\AccountController();
-    $controller->edit();
-} elseif ($uri == '/accounts/update') {
-    $controller = new App\Controllers\AccountController();
-    $controller->update();
-} elseif ($uri == '/accounts/delete') {
-    $controller = new App\Controllers\AccountController();
-    $controller->delete();
-} elseif ($uri == '/categories') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->index();
-} elseif ($uri == '/categories/create') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->create();
-} elseif ($uri == '/categories/store') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->store();
-} elseif ($uri == '/categories/edit') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->edit();
-} elseif ($uri == '/categories/update') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->update();
-} elseif ($uri == '/categories/delete') {
-    $controller = new App\Controllers\CategoryController();
-    $controller->delete();
-} elseif ($uri == '/budgets') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->index();
-} elseif ($uri == '/budgets/create') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->create();
-} elseif ($uri == '/budgets/store') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->store();
-} elseif ($uri == '/budgets/edit') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->edit();
-} elseif ($uri == '/budgets/update') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->update();
-} elseif ($uri == '/budgets/delete') {
-    $controller = new App\Controllers\BudgetController();
-    $controller->delete();
-} elseif ($uri == '/reports') {
-    $controller = new App\Controllers\ReportController();
-    $controller->index();
-} elseif ($uri == '/reports/category') {
-    $controller = new App\Controllers\ReportController();
-    $controller->categoryDetail();
-} 
-// Routes voor Spaardoelen
-elseif ($uri == '/savings') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->index();
-} elseif ($uri == '/savings/create') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->create();
-} elseif ($uri == '/savings/store') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->store();
-} elseif ($uri == '/savings/show') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->show();
-} elseif ($uri == '/savings/edit') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->edit();
-} elseif ($uri == '/savings/update') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->update();
-} elseif ($uri == '/savings/delete') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->delete();
-} elseif ($uri == '/savings/add-contribution') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->addContribution();
-} elseif ($uri == '/savings/remove-contribution') {
-    $controller = new App\Controllers\SavingsController();
-    $controller->removeContribution();
-}
-// Routes voor Export functionaliteit
-elseif ($uri == '/export') {
-    $controller = new App\Controllers\ExportController();
-    $controller->index();
-} elseif ($uri == '/export/transactions') {
-    $controller = new App\Controllers\ExportController();
-    $controller->exportTransactions();
-} elseif ($uri == '/export/budgets') {
-    $controller = new App\Controllers\ExportController();
-    $controller->exportBudgets();
-} elseif ($uri == '/export/accounts') {
-    $controller = new App\Controllers\ExportController();
-    $controller->exportAccounts();
-} elseif ($uri == '/export/download') {
-    $controller = new App\Controllers\ExportController();
-    $controller->download();
-}    
-elseif ($uri == '/notifications') {
-    $controller = new App\Controllers\NotificationController();
-    $controller->index();
-} elseif ($uri == '/notifications/mark-read') {
-    $controller = new App\Controllers\NotificationController();
-    $controller->markAsRead();
-} elseif ($uri == '/notifications/mark-all-read') {
-    $controller = new App\Controllers\NotificationController();
-    $controller->markAllAsRead();
-} elseif ($uri == '/notifications/count') {
-    $controller = new App\Controllers\NotificationController();
-    $controller->getUnreadCount();
-}    
-elseif ($uri == '/recurring') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->index();
-} elseif ($uri == '/recurring/create') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->create();
-} elseif ($uri == '/recurring/store') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->store();
-} elseif ($uri == '/recurring/edit') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->edit();
-} elseif ($uri == '/recurring/update') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->update();
-} elseif ($uri == '/recurring/delete') {
-    $controller = new App\Controllers\RecurringTransactionController();
-    $controller->delete();
-}
- else {
-    // 404 pagina
-    http_response_code(404);
-    echo "
-    <html>
-    <head>
-        <title>Pagina niet gevonden</title>
-        <script src='https://cdn.tailwindcss.com'></script>
-    </head>
-    <body class='bg-gray-100 min-h-screen flex items-center justify-center'>
-        <div class='max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center'>
-            <h1 class='text-3xl font-bold mb-4 text-red-500'>404</h1>
-            <h2 class='text-2xl font-semibold mb-4'>Pagina niet gevonden</h2>
-            <p class='mb-6 text-gray-600'>De opgevraagde pagina kon niet worden gevonden.</p>
-            <div>
-                <a href='/' class='inline-block bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded'>
-                    Terug naar home
-                </a>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
-}
+// Define routes
+// Authentication routes
+$router->register('/', ['controller' => 'DashboardController', 'action' => 'index']);
+$router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
+$router->register('/register', ['controller' => 'AuthController', 'action' => 'register']);
+$router->register('/logout', ['controller' => 'AuthController', 'action' => 'logout']);
+
+// Transaction routes
+$router->register('/transactions', ['controller' => 'TransactionController', 'action' => 'index']);
+$router->register('/transactions/create', ['controller' => 'TransactionController', 'action' => 'create']);
+$router->register('/transactions/store', ['controller' => 'TransactionController', 'action' => 'store'], 'POST');
+$router->register('/transactions/edit', ['controller' => 'TransactionController', 'action' => 'edit']);
+$router->register('/transactions/update', ['controller' => 'TransactionController', 'action' => 'update'], 'POST');
+$router->register('/transactions/delete', ['controller' => 'TransactionController', 'action' => 'delete']);
+
+// Account routes
+$router->register('/accounts', ['controller' => 'AccountController', 'action' => 'index']);
+$router->register('/accounts/create', ['controller' => 'AccountController', 'action' => 'create']);
+$router->register('/accounts/store', ['controller' => 'AccountController', 'action' => 'store'], 'POST');
+$router->register('/accounts/edit', ['controller' => 'AccountController', 'action' => 'edit']);
+$router->register('/accounts/update', ['controller' => 'AccountController', 'action' => 'update'], 'POST');
+$router->register('/accounts/delete', ['controller' => 'AccountController', 'action' => 'delete']);
+
+// Category routes
+$router->register('/categories', ['controller' => 'CategoryController', 'action' => 'index']);
+$router->register('/categories/create', ['controller' => 'CategoryController', 'action' => 'create']);
+$router->register('/categories/store', ['controller' => 'CategoryController', 'action' => 'store'], 'POST');
+$router->register('/categories/edit', ['controller' => 'CategoryController', 'action' => 'edit']);
+$router->register('/categories/update', ['controller' => 'CategoryController', 'action' => 'update'], 'POST');
+$router->register('/categories/delete', ['controller' => 'CategoryController', 'action' => 'delete']);
+
+// Budget routes
+$router->register('/budgets', ['controller' => 'BudgetController', 'action' => 'index']);
+$router->register('/budgets/create', ['controller' => 'BudgetController', 'action' => 'create']);
+$router->register('/budgets/store', ['controller' => 'BudgetController', 'action' => 'store'], 'POST');
+$router->register('/budgets/edit', ['controller' => 'BudgetController', 'action' => 'edit']);
+$router->register('/budgets/update', ['controller' => 'BudgetController', 'action' => 'update'], 'POST');
+$router->register('/budgets/delete', ['controller' => 'BudgetController', 'action' => 'delete']);
+
+// Report routes
+$router->register('/reports', ['controller' => 'ReportController', 'action' => 'index']);
+$router->register('/reports/category', ['controller' => 'ReportController', 'action' => 'categoryDetail']);
+
+// Savings routes
+$router->register('/savings', ['controller' => 'SavingsController', 'action' => 'index']);
+$router->register('/savings/create', ['controller' => 'SavingsController', 'action' => 'create']);
+$router->register('/savings/store', ['controller' => 'SavingsController', 'action' => 'store'], 'POST');
+$router->register('/savings/show', ['controller' => 'SavingsController', 'action' => 'show']);
+$router->register('/savings/edit', ['controller' => 'SavingsController', 'action' => 'edit']);
+$router->register('/savings/update', ['controller' => 'SavingsController', 'action' => 'update'], 'POST');
+$router->register('/savings/delete', ['controller' => 'SavingsController', 'action' => 'delete']);
+$router->register('/savings/add-contribution', ['controller' => 'SavingsController', 'action' => 'addContribution'], 'POST');
+$router->register('/savings/remove-contribution', ['controller' => 'SavingsController', 'action' => 'removeContribution']);
+
+// Export routes
+$router->register('/export', ['controller' => 'ExportController', 'action' => 'index']);
+$router->register('/export/transactions', ['controller' => 'ExportController', 'action' => 'exportTransactions'], 'POST');
+$router->register('/export/budgets', ['controller' => 'ExportController', 'action' => 'exportBudgets'], 'POST');
+$router->register('/export/accounts', ['controller' => 'ExportController', 'action' => 'exportAccounts'], 'POST');
+$router->register('/export/download', ['controller' => 'ExportController', 'action' => 'download']);
+
+// Notification routes
+$router->register('/notifications', ['controller' => 'NotificationController', 'action' => 'index']);
+$router->register('/notifications/mark-read', ['controller' => 'NotificationController', 'action' => 'markAsRead'], 'POST');
+$router->register('/notifications/mark-all-read', ['controller' => 'NotificationController', 'action' => 'markAllAsRead'], 'POST');
+$router->register('/notifications/count', ['controller' => 'NotificationController', 'action' => 'getUnreadCount']);
+
+// Recurring transaction routes
+$router->register('/recurring', ['controller' => 'RecurringTransactionController', 'action' => 'index']);
+$router->register('/recurring/create', ['controller' => 'RecurringTransactionController', 'action' => 'create']);
+$router->register('/recurring/store', ['controller' => 'RecurringTransactionController', 'action' => 'store'], 'POST');
+$router->register('/recurring/edit', ['controller' => 'RecurringTransactionController', 'action' => 'edit']);
+$router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
+$router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
+
+// Dispatch the request
+$router->dispatch();
