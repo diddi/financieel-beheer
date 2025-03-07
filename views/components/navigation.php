@@ -5,6 +5,10 @@
  * @param string $currentPage De huidige pagina om de juiste menu-item te highlighten
  */
 
+// Import the Auth class with its namespace
+use App\Core\Auth;
+use App\Models\Notification;
+
 // Bepaal huidige pagina als deze niet is doorgegeven
 if (!isset($currentPage)) {
     $uri = $_SERVER['REQUEST_URI'];
@@ -26,6 +30,8 @@ if (!isset($currentPage)) {
         $currentPage = 'savings';
     } elseif (strpos($base, '/export') === 0) {
         $currentPage = 'export';
+    } elseif (strpos($base, '/notifications') === 0) {
+        $currentPage = 'notifications';
     } else {
         $currentPage = '';
     }
@@ -40,6 +46,12 @@ if (isset($user) && isset($user['username'])) {
     if ($currentUser && isset($currentUser['username'])) {
         $username = $currentUser['username'];
     }
+}
+
+// Haal aantal ongelezen notificaties op
+$unreadNotificationCount = 0;
+if (class_exists('\\App\\Models\\Notification') && method_exists('\\App\\Models\\Notification', 'getUnreadCount') && Auth::check()) {
+    $unreadNotificationCount = Notification::getUnreadCount(Auth::id());
 }
 ?>
 
@@ -59,6 +71,14 @@ if (isset($user) && isset($user['username'])) {
                     <a href='/reports' class='px-3 py-2 rounded-md text-sm font-medium <?= $currentPage === 'reports' ? 'bg-blue-700' : 'hover:bg-blue-700' ?>'>Rapportages</a>
                     <a href='/savings' class='px-3 py-2 rounded-md text-sm font-medium <?= $currentPage === 'savings' ? 'bg-blue-700' : 'hover:bg-blue-700' ?>'>Spaardoelen</a>
                     <a href='/export' class='px-3 py-2 rounded-md text-sm font-medium <?= $currentPage === 'export' ? 'bg-blue-700' : 'hover:bg-blue-700' ?>'>Exporteren</a>
+                    <a href='/notifications' class='px-3 py-2 rounded-md text-sm font-medium <?= $currentPage === 'notifications' ? 'bg-blue-700' : 'hover:bg-blue-700' ?> relative'>
+                        Notificaties
+                        <?php if ($unreadNotificationCount > 0): ?>
+                            <span class="absolute top-1 right-1 inline-block w-4 h-4 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">
+                                <?= $unreadNotificationCount > 9 ? '9+' : $unreadNotificationCount ?>
+                            </span>
+                        <?php endif; ?>
+                    </a>
                 </div>
             </div>
             <div class='flex items-center'>

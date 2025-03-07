@@ -5,6 +5,7 @@ use App\Core\Auth;
 use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\Category;
+use App\Services\NotificationService;
 
 class TransactionController {
     
@@ -118,6 +119,22 @@ class TransactionController {
         
         $transactionId = Transaction::create($transactionData);
         
+        // Controleer budgetten en stuur notificaties indien nodig
+        if (class_exists('App\\Services\\NotificationService')) {
+            try {
+                $notificationService = new NotificationService();
+                $notificationService->checkBudgetLimits($userId, $categoryId, $type);
+                
+                // Voor grote uitgaven
+                if ($type === 'expense') {
+                    $notificationService->checkLargeExpense($userId, $amount, $categoryId);
+                }
+            } catch (\Exception $e) {
+                // Log error maar ga door met de rest van de code
+                error_log('Notification error: ' . $e->getMessage());
+            }
+        }
+        
         // Redirect naar transactie overzicht
         header('Location: /transactions');
         exit;
@@ -229,6 +246,17 @@ class TransactionController {
         ];
         
         Transaction::update($id, $transactionData, $userId);
+        
+        // Controleer budgetten en stuur notificaties indien nodig
+        if (class_exists('App\\Services\\NotificationService')) {
+            try {
+                $notificationService = new NotificationService();
+                $notificationService->checkBudgetLimits($userId, $categoryId, $type);
+            } catch (\Exception $e) {
+                // Log error maar ga door met de rest van de code
+                error_log('Notification error: ' . $e->getMessage());
+            }
+        }
         
         // Redirect naar transactie overzicht
         header('Location: /transactions');
@@ -422,7 +450,7 @@ class TransactionController {
                             <div id='category_container'>
                                 <label for='category_id' class='block text-sm font-medium text-gray-700'>Categorie</label>
                                 <select id='category_id' name='category_id' class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
-                                    <option value=''>Selecteer categorie</option>
+                                    <option value=''>-- Selecteer categorie --</option>
                                     <optgroup label='Uitgaven' id='expense_categories' class='" . ($typeValue !== 'expense' ? 'hidden' : '') . "'>";
         
         foreach ($expenseCategories as $category) {

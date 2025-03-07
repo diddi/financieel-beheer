@@ -168,5 +168,41 @@
         });
     });
 </script>
-
+<?php if (!empty($upcomingRecurring)): ?>
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Aankomende terugkerende transacties</h2>
+        <a href="/recurring" class="text-blue-600 hover:underline text-sm">Alle bekijken →</a>
+    </div>
+    
+    <div class="divide-y">
+        <?php foreach($upcomingRecurring as $transaction): ?>
+            <div class="py-3 flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="w-2 h-8 rounded-full mr-3" style="background-color: <?= htmlspecialchars($transaction['color'] ?? '#9E9E9E') ?>"></div>
+                    <div>
+                        <div class="font-medium"><?= htmlspecialchars($transaction['description']) ?></div>
+                        <div class="text-sm text-gray-500">
+                            <?= htmlspecialchars($transaction['account_name']) ?> • 
+                            <?= date('d-m-Y', strtotime($transaction['next_due_date'])) ?>
+                            <?php
+                                $today = date('Y-m-d');
+                                $daysUntil = (strtotime($transaction['next_due_date']) - strtotime($today)) / (60 * 60 * 24);
+                                if ($daysUntil <= 0) {
+                                    echo '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs">Vandaag</span>';
+                                } elseif ($daysUntil <= 3) {
+                                    echo '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">Binnen ' . ceil($daysUntil) . ' dagen</span>';
+                                }
+                            ?>
+                        </div>
+                    </div>
+                </div>
+                <div class="font-bold <?= $transaction['type'] === 'expense' ? 'text-red-600' : 'text-green-600' ?>">
+                    <?= $transaction['type'] === 'expense' ? '-' : '+' ?>€<?= number_format($transaction['amount'], 2, ',', '.') ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
 <?php include __DIR__ . '/../layouts/footer.php'; ?>

@@ -5,6 +5,7 @@ use App\Core\Auth;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\Budget;
+use App\Models\RecurringTransaction;
 
 class DashboardController {
     public function index() {
@@ -57,6 +58,24 @@ class DashboardController {
         
         // Bereid gegevens voor de grafiek voor
         $chartData = $this->prepareChartData($userId);
+        
+        // Haal aankomende terugkerende transacties op
+        if (class_exists('App\\Models\\RecurringTransaction') && method_exists('App\\Models\\RecurringTransaction', 'getAllByUser')) {
+            try {
+                $upcomingRecurring = RecurringTransaction::getAllByUser($userId, true);
+                $upcomingRecurring = array_filter($upcomingRecurring, function($transaction) {
+                    return strtotime($transaction['next_due_date']) <= strtotime('+7 days'); // Komende 7 dagen
+                });
+                // Beperk tot de eerste 5
+                $upcomingRecurring = array_slice($upcomingRecurring, 0, 5);
+            } catch (\Exception $e) {
+                // Als er een fout optreedt, maak een lege array
+                $upcomingRecurring = [];
+            }
+        } else {
+            // Als de functionaliteit nog niet beschikbaar is, maak een lege array
+            $upcomingRecurring = [];
+        }
         
         // Maak dashboard
         echo "
@@ -134,6 +153,44 @@ class DashboardController {
                         <canvas id='monthlyChart'></canvas>
                     </div>
                 </div>";
+                
+        // Toon aankomende terugkerende transacties als die er zijn
+        if (!empty($upcomingRecurring)) {
+            echo "<div class='bg-white rounded-lg shadow p-6 mb-8'>
+                    <div class='flex justify-between items-center mb-4'>
+                        <h2 class='text-xl font-bold'>Aankomende terugkerende transacties</h2>
+                        <a href='/recurring' class='text-blue-600 hover:underline text-sm'>Alle bekijken →</a>
+                    </div>
+                    
+                    <div class='divide-y'>";
+            foreach ($upcomingRecurring as $transaction) {
+                echo "<div class='py-3 flex justify-between items-center'>
+                        <div class='flex items-center'>
+                            <div class='w-2 h-8 rounded-full mr-3' style='background-color: " . htmlspecialchars($transaction['color'] ?? '#9E9E9E') . "'></div>
+                            <div>
+                                <div class='font-medium'>" . htmlspecialchars($transaction['description']) . "</div>
+                                <div class='text-sm text-gray-500'>
+                                    " . htmlspecialchars($transaction['account_name']) . " • 
+                                    " . date('d-m-Y', strtotime($transaction['next_due_date'])) . "
+                                    ";
+                    $today = date('Y-m-d');
+                    $daysUntil = (strtotime($transaction['next_due_date']) - strtotime($today)) / (60 * 60 * 24);
+                    if ($daysUntil <= 0) {
+                        echo '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs">Vandaag</span>';
+                    } elseif ($daysUntil <= 3) {
+                        echo '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">Binnen ' . ceil($daysUntil) . ' dagen</span>';
+                    }
+                echo "                </div>
+                            </div>
+                        </div>
+                        <div class='font-bold " . ($transaction['type'] === 'expense' ? 'text-red-600' : 'text-green-600') . "'>
+                            " . ($transaction['type'] === 'expense' ? '-' : '+') . "€" . number_format($transaction['amount'], 2, ',', '.') . "
+                        </div>
+                    </div>";
+            }
+            echo "    </div>
+                </div>";
+        }
                 
         // Toon budget voortgang
         if (!empty($budgets)) {

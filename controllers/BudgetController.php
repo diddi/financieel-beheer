@@ -40,7 +40,7 @@ class BudgetController {
         $categories = Category::getAllByUserAndType($userId, 'expense');
         
         // Geef het formulier weer
-        $this->renderBudgetForm(null, $categories);
+        $this->renderBudgetForm($categories);
     }
     
     public function store() {
@@ -86,7 +86,7 @@ class BudgetController {
         // Als er fouten zijn, toon het formulier opnieuw
         if (!empty($errors)) {
             $categories = Category::getAllByUserAndType($userId, 'expense');
-            $this->renderBudgetForm(null, $categories, $errors, $_POST);
+            $this->renderBudgetForm($categories, null, $errors, $_POST);
             return;
         }
         
@@ -142,7 +142,7 @@ class BudgetController {
         $categories = Category::getAllByUserAndType($userId, 'expense');
         
         // Geef het formulier weer
-        $this->renderBudgetForm($budget, $categories);
+        $this->renderBudgetForm($categories, $budget);
     }
     
     public function update() {
@@ -204,7 +204,7 @@ class BudgetController {
         // Als er fouten zijn, toon het formulier opnieuw
         if (!empty($errors)) {
             $categories = Category::getAllByUserAndType($userId, 'expense');
-            $this->renderBudgetForm($budget, $categories, $errors, $_POST);
+            $this->renderBudgetForm($categories, $budget, $errors, $_POST);
             return;
         }
         
@@ -456,7 +456,15 @@ class BudgetController {
         ";
     }
     
-    private function renderBudgetForm($budget = null, $categories, $errors = [], $oldInput = []) {
+    /**
+     * Renders the budget form
+     * 
+     * @param array $categories The available categories
+     * @param array|null $budget The budget to edit, or null for a new budget
+     * @param array $errors Any validation errors
+     * @param array $oldInput Previously submitted form data
+     */
+    private function renderBudgetForm($categories, $budget = null, $errors = [], $oldInput = []) {
         $isEdit = $budget !== null;
         $title = $isEdit ? 'Budget bewerken' : 'Nieuw budget';
         $action = $isEdit ? '/budgets/update' : '/budgets/store';
@@ -476,29 +484,12 @@ class BudgetController {
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <script src='https://cdn.tailwindcss.com'></script>
         </head>
-        <body class='bg-gray-100 min-h-screen'>
-            <nav class='bg-blue-600 text-white shadow-lg'>
-                <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-                    <div class='flex justify-between h-16'>
-                        <div class='flex'>
-                            <div class='flex-shrink-0 flex items-center'>
-                                <a href='/' class='text-xl font-bold'>Financieel Beheer</a>
-                            </div>
-                            <div class='ml-6 flex items-center space-x-4'>
-                                <a href='/' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Dashboard</a>
-                                <a href='/transactions' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Transacties</a>
-                                <a href='/accounts' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Rekeningen</a>
-                                <a href='/categories' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Categorieën</a>
-                                <a href='/budgets' class='px-3 py-2 rounded-md text-sm font-medium bg-blue-700'>Budgetten</a>
-                            </div>
-                        </div>
-                        <div class='flex items-center'>
-                            <a href='/logout' class='px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700'>Uitloggen</a>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
+        <body class='bg-gray-100 min-h-screen'>";
+        
+        // Include navigation component
+        include_once __DIR__ . '/../views/components/navigation.php';
+        
+        echo "
             <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
                 <div class='md:flex md:items-center md:justify-between mb-6'>
                     <h1 class='text-2xl font-bold'>{$title}</h1>

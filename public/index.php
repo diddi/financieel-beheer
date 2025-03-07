@@ -21,6 +21,7 @@ require_once ROOT_PATH . '/models/Category.php';
 require_once ROOT_PATH . '/models/Transaction.php';
 require_once ROOT_PATH . '/models/Budget.php';
 require_once ROOT_PATH . '/models/SavingsGoal.php';
+require_once ROOT_PATH . '/models/RecurringTransaction.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/DashboardController.php';
 require_once ROOT_PATH . '/controllers/TransactionController.php';
@@ -179,7 +180,40 @@ elseif ($uri == '/export') {
 } elseif ($uri == '/export/download') {
     $controller = new App\Controllers\ExportController();
     $controller->download();
-} else {
+}    
+elseif ($uri == '/notifications') {
+    $controller = new App\Controllers\NotificationController();
+    $controller->index();
+} elseif ($uri == '/notifications/mark-read') {
+    $controller = new App\Controllers\NotificationController();
+    $controller->markAsRead();
+} elseif ($uri == '/notifications/mark-all-read') {
+    $controller = new App\Controllers\NotificationController();
+    $controller->markAllAsRead();
+} elseif ($uri == '/notifications/count') {
+    $controller = new App\Controllers\NotificationController();
+    $controller->getUnreadCount();
+}    
+elseif ($uri == '/recurring') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->index();
+} elseif ($uri == '/recurring/create') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->create();
+} elseif ($uri == '/recurring/store') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->store();
+} elseif ($uri == '/recurring/edit') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->edit();
+} elseif ($uri == '/recurring/update') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->update();
+} elseif ($uri == '/recurring/delete') {
+    $controller = new App\Controllers\RecurringTransactionController();
+    $controller->delete();
+}
+ else {
     // 404 pagina
     http_response_code(404);
     echo "
