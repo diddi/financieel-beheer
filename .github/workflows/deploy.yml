@@ -43,6 +43,69 @@ jobs:
         echo "    ]" >> deploy_all/config/database.php
         echo "];" >> deploy_all/config/database.php
         
+        # Pas autoload.php aan om te werken met de nieuwe mapstructuur
+        # Eerst backup maken van originele
+        cp deploy_all/autoload.php deploy_all/autoload.php.bak
+        
+        # Nieuw autoload bestand maken
+        echo '<?php' > deploy_all/autoload.php
+        echo '// Aangepaste autoloader voor correcte mapstructuur' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '// Definieer het root pad' >> deploy_all/autoload.php
+        echo 'define("ROOT_PATH", __DIR__);' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '// Registreer de autoloader functie' >> deploy_all/autoload.php
+        echo 'spl_autoload_register(function($className) {' >> deploy_all/autoload.php
+        echo '    // Vervang namespace separators met directory separators' >> deploy_all/autoload.php
+        echo '    $path = str_replace("\\\\", DIRECTORY_SEPARATOR, $className);' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '    // Verwijder de App\ namespace prefix' >> deploy_all/autoload.php
+        echo '    $path = str_replace("App" . DIRECTORY_SEPARATOR, "", $path);' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '    // Bepaal het volledige pad naar het bestand' >> deploy_all/autoload.php
+        echo '    $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . strtolower($path) . ".php";' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '    // Log voor debugging' >> deploy_all/autoload.php
+        echo '    if (file_exists($filePath)) {' >> deploy_all/autoload.php
+        echo '        require_once $filePath;' >> deploy_all/autoload.php
+        echo '    } else {' >> deploy_all/autoload.php
+        echo '        // Log welke bestanden niet worden gevonden voor debugging' >> deploy_all/autoload.php
+        echo '        file_put_contents(' >> deploy_all/autoload.php
+        echo '            __DIR__ . "/autoload_errors.log",' >> deploy_all/autoload.php
+        echo '            date("Y-m-d H:i:s") . " - Kon bestand niet vinden: $filePath voor class $className\\n",' >> deploy_all/autoload.php
+        echo '            FILE_APPEND' >> deploy_all/autoload.php
+        echo '        );' >> deploy_all/autoload.php
+        echo '    }' >> deploy_all/autoload.php
+        echo '});' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '// Controleer of we nog andere bestanden moeten includen' >> deploy_all/autoload.php
+        echo '// Composer autoloader als die gebruikt wordt' >> deploy_all/autoload.php
+        echo 'if (file_exists(ROOT_PATH . "/vendor/autoload.php")) {' >> deploy_all/autoload.php
+        echo '    require_once ROOT_PATH . "/vendor/autoload.php";' >> deploy_all/autoload.php
+        echo '}' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '// Helper functie om namespaces uit te debuggen (voor troubleshooting)' >> deploy_all/autoload.php
+        echo 'function get_declared_namespaces() {' >> deploy_all/autoload.php
+        echo '    $classes = get_declared_classes();' >> deploy_all/autoload.php
+        echo '    $namespaces = [];' >> deploy_all/autoload.php
+        echo '    ' >> deploy_all/autoload.php
+        echo '    foreach ($classes as $class) {' >> deploy_all/autoload.php
+        echo '        $parts = explode("\\\\", $class);' >> deploy_all/autoload.php
+        echo '        array_pop($parts); // Verwijder de class naam' >> deploy_all/autoload.php
+        echo '        $namespace = implode("\\\\", $parts);' >> deploy_all/autoload.php
+        echo '        ' >> deploy_all/autoload.php
+        echo '        if (!empty($namespace)) {' >> deploy_all/autoload.php
+        echo '            $namespaces[$namespace] = true;' >> deploy_all/autoload.php
+        echo '        }' >> deploy_all/autoload.php
+        echo '    }' >> deploy_all/autoload.php
+        echo '    ' >> deploy_all/autoload.php
+        echo '    return array_keys($namespaces);' >> deploy_all/autoload.php
+        echo '}' >> deploy_all/autoload.php
+        
+        # Controleer of de core map en controller bestand er zijn
+        echo "Controleren of core/controller.php bestaat:"
+        ls -la deploy_all/core/
+        
         # Maak eenvoudige test.php voor debug
         echo '<?php' > deploy_all/test.php
         echo "echo '<h1>Basis PHP Test</h1>';" >> deploy_all/test.php
@@ -83,6 +146,27 @@ jobs:
         echo "    echo '<div style=\"color:green\">✓ Autoload succesvol geladen</div>';" >> deploy_all/index_debug.php
         echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
         echo "    echo '<div style=\"color:red\">✗ Autoload error: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Test of de Controller class bestaat" >> deploy_all/index_debug.php
+        echo "echo '<h2>Controller Class Test</h2>';" >> deploy_all/index_debug.php
+        echo "if (file_exists('core/controller.php')) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:green\">✓ core/controller.php bestand gevonden</div>';" >> deploy_all/index_debug.php
+        echo "    echo '<pre>Bestandsinhoud:<br>' . htmlspecialchars(file_get_contents('core/controller.php')) . '</pre>';" >> deploy_all/index_debug.php
+        echo "} else {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ core/controller.php bestand niet gevonden</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "try {" >> deploy_all/index_debug.php
+        echo "    // Probeer Controller class handmatig te laden" >> deploy_all/index_debug.php
+        echo "    if (!class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
+        echo "        require_once 'core/controller.php';" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:green\">✓ Controller class handmatig geladen</div>';" >> deploy_all/index_debug.php
+        echo "    } else {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:green\">✓ Controller class al geladen door autoloader</div>';" >> deploy_all/index_debug.php
+        echo "    }" >> deploy_all/index_debug.php
+        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ Error bij laden van Controller class: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
         echo "}" >> deploy_all/index_debug.php
         echo "" >> deploy_all/index_debug.php
         echo "// Test database connectie" >> deploy_all/index_debug.php
