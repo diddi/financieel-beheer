@@ -23,83 +23,37 @@ jobs:
         echo "Stap 1: Mappen aanmaken"
         mkdir -p deploy_all
         
-        # Kopieer de belangrijkste bestanden (minder kopiëren om fouten te vermijden)
-        echo "Stap 2: Belangrijkste bestanden kopiëren"
-        cp -r controllers core models views config deploy_all/ || echo "Sommige bestanden konden niet worden gekopieerd"
+        # Alleen eenvoudige bestanden maken, geen namespaces
+        echo "Stap 2: Super eenvoudige structuur maken"
         
-        echo "Stap 3: Controleren welke bestanden zijn gekopieerd"
-        ls -la deploy_all
-        
-        # Test of het script tot hier komt
-        echo "Stap 4: Autoload.php en index.php maken"
-        
-        # Maak een eenvoudige autoload.php
-        echo '<?php' > deploy_all/autoload.php
-        echo '// Eenvoudige autoloader' >> deploy_all/autoload.php
-        echo 'spl_autoload_register(function($className) {' >> deploy_all/autoload.php
-        echo '    $path = str_replace("\\\\", DIRECTORY_SEPARATOR, $className);' >> deploy_all/autoload.php
-        echo '    $path = str_replace("App" . DIRECTORY_SEPARATOR, "", $path);' >> deploy_all/autoload.php
-        echo '    $filePath = __DIR__ . DIRECTORY_SEPARATOR . $path . ".php";' >> deploy_all/autoload.php
-        echo '    if (file_exists($filePath)) {' >> deploy_all/autoload.php
-        echo '        require_once $filePath;' >> deploy_all/autoload.php
-        echo '    }' >> deploy_all/autoload.php
-        echo '});' >> deploy_all/autoload.php
-        
-        # Maak een eenvoudige test.php
+        # Test PHP bestand
         echo '<?php' > deploy_all/test.php
         echo "echo '<h1>Test Pagina</h1>';" >> deploy_all/test.php
-        echo "echo 'De PHP-server werkt!';" >> deploy_all/test.php
+        echo "echo '<p>De PHP-server werkt!</p>';" >> deploy_all/test.php
         
-        # Maak een eenvoudige Router.php
-        echo "Stap 5: Router.php maken"
-        mkdir -p deploy_all/core
-        echo '<?php' > deploy_all/core/Router.php
-        echo 'namespace App\\Core;' >> deploy_all/core/Router.php
-        echo 'class Router {' >> deploy_all/core/Router.php
-        echo '    private $routes = [];' >> deploy_all/core/Router.php
-        echo '    public function register($path, $handler, $method = "GET") {' >> deploy_all/core/Router.php
-        echo '        $this->routes[] = ["path" => $path, "handler" => $handler, "method" => $method];' >> deploy_all/core/Router.php
-        echo '    }' >> deploy_all/core/Router.php
-        echo '    public function dispatch() {' >> deploy_all/core/Router.php
-        echo '        echo "<h1>Router Test Pagina</h1>";' >> deploy_all/core/Router.php
-        echo '        echo "<p>Als je dit ziet, werkt de router!</p>";' >> deploy_all/core/Router.php
-        echo '    }' >> deploy_all/core/Router.php
-        echo '}' >> deploy_all/core/Router.php
-        
-        # Maak lowercase variant
-        cp deploy_all/core/Router.php deploy_all/core/router.php
-        
-        # Maak een eenvoudige Controller.php
-        echo "Stap 6: Controller.php maken"
-        echo '<?php' > deploy_all/core/Controller.php
-        echo 'namespace App\\Core;' >> deploy_all/core/Controller.php
-        echo 'class Controller {' >> deploy_all/core/Controller.php
-        echo '    protected function requireLogin() {' >> deploy_all/core/Controller.php
-        echo '        return 1;' >> deploy_all/core/Controller.php
-        echo '    }' >> deploy_all/core/Controller.php
-        echo '}' >> deploy_all/core/Controller.php
-        
-        # Maak lowercase variant
-        cp deploy_all/core/Controller.php deploy_all/core/controller.php
-        
-        # Maak een eenvoudige index.php die de router gebruikt
-        echo "Stap 7: Index.php maken"
-        echo '<?php' > deploy_all/index.php
-        echo 'require_once "autoload.php";' >> deploy_all/index.php
-        echo 'use App\\\\Core\\\\Router;' >> deploy_all/index.php
-        echo '$router = new Router();' >> deploy_all/index.php
-        echo '$router->dispatch();' >> deploy_all/index.php
-        
-        # Maak een phpinfo bestand voor diagnostiek
-        echo "Stap 7b: Info.php maken voor diagnostiek"
+        # Info bestand
         echo '<?php' > deploy_all/info.php
-        echo 'phpinfo();' >> deploy_all/info.php
+        echo "phpinfo();" >> deploy_all/info.php
+        
+        # Supereenvoudige index zonder namespace
+        echo '<?php' > deploy_all/index.php
+        echo "echo '<h1>Welkom bij Financieel Beheer</h1>';" >> deploy_all/index.php
+        echo "echo '<p>Deze versie is een tijdelijke testversie om de deployment te controleren.</p>';" >> deploy_all/index.php
+        echo "echo '<p>Als je deze pagina ziet, werkt de webserver correct!</p>';" >> deploy_all/index.php
+        echo "echo '<p><a href=\"test.php\">Test pagina bekijken</a> | <a href=\"info.php\">PHP info bekijken</a></p>';" >> deploy_all/index.php
+        
+        # .htaccess redirect bestand
+        echo "Stap 3: .htaccess maken"
+        echo 'RewriteEngine On' > deploy_all/.htaccess
+        echo 'RewriteBase /' >> deploy_all/.htaccess
+        echo '# PHP Fouten tonen' >> deploy_all/.htaccess
+        echo 'php_flag display_errors on' >> deploy_all/.htaccess
         
         # Verifieer de uiteindelijke structuur
-        echo "Stap 8: Finale structuur controleren"
+        echo "Stap 4: Finale structuur controleren"
         find deploy_all -type f | sort
         
-        echo "Deployment bestanden voorbereid"
+        echo "Super eenvoudige deployment bestanden voorbereid"
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
