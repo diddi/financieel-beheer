@@ -14,21 +14,18 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: FTP Deploy
+    - name: FTP Deploy Adjusted
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /
+        local-dir: ./public/
         exclude: |
           **/.git*
           **/.git*/**
           **/node_modules/**
-          config/database.php
-          .env
-          README.md
-          .DS_Store
 
 # Hoe te gebruiken:
 # 1. Ga naar je GitHub repository
@@ -37,4 +34,4 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
-# 4. Nu zal je website automatisch gedeployed worden naar je hosting wanneer je wijzigingen naar de main branch pusht! 
+# 4. Nu zal ALLEEN de inhoud van de public map worden gedeployed naar je hosting! 
