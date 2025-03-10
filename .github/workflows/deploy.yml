@@ -25,77 +25,41 @@ jobs:
         # Kopieer inhoud van public/ naar de root van deploy_tmp
         cp -r public/* deploy_tmp/
         
-        # Controleer of config/database.example.php bestaat en kopieer naar database.php indien nodig
-        if [ -f "config/database.example.php" ]; then
-          echo "Kopieren van database.example.php naar database.php"
-          cp config/database.example.php deploy_tmp/config/database.php
-        else
-          # Maak een database.php voorbeeld bestand aan als het niet bestaat
-          echo "Maken van een voorbeeld database.php bestand"
-          mkdir -p deploy_tmp/config
-          cat > deploy_tmp/config/database.php << 'EOL'
-<?php
-// Database configuratie
-return [
-    'host' => 'localhost',
-    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker
-    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord
-    'database' => 'db_naam', // Wijzig naar je database naam
-    'port' => 3306,
-    'charset' => 'utf8mb4',
-    'options' => [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]
-];
-EOL
-        fi
+        # Maak database.php bestand
+        mkdir -p deploy_tmp/config
+        echo '<?php' > deploy_tmp/config/database.php
+        echo '// Database configuratie' >> deploy_tmp/config/database.php
+        echo 'return [' >> deploy_tmp/config/database.php
+        echo "    'host' => 'localhost'," >> deploy_tmp/config/database.php
+        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_tmp/config/database.php
+        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_tmp/config/database.php
+        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_tmp/config/database.php
+        echo "    'port' => 3306," >> deploy_tmp/config/database.php
+        echo "    'charset' => 'utf8mb4'," >> deploy_tmp/config/database.php
+        echo "    'options' => [" >> deploy_tmp/config/database.php
+        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_tmp/config/database.php
+        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_tmp/config/database.php
+        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_tmp/config/database.php
+        echo "    ]" >> deploy_tmp/config/database.php
+        echo "];" >> deploy_tmp/config/database.php
         
-        # Maak een testbestand voor debugging
-        echo "Maken van info.php voor debugging"
-        cat > deploy_tmp/info.php << 'EOL'
-<?php
-// Debug informatie
-echo '<h1>PHP Info</h1>';
-echo '<h2>PHP Versie</h2>';
-echo phpversion();
-
-echo '<h2>Bestanden en mappen controle</h2>';
-echo '<pre>';
-echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/autoload.php') ? 'JA' : 'NEE') . "\n";
-echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/core') ? 'JA' : 'NEE') . "\n";
-echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/controllers') ? 'JA' : 'NEE') . "\n";
-echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/models') ? 'JA' : 'NEE') . "\n";
-echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . "\n";
-echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . "\n";
-echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . "\n";
-echo '</pre>';
-
-echo '<h2>Bestandsrechten</h2>';
-echo '<pre>';
-$files = [
-    'autoload.php',
-    'config',
-    'config/database.php',
-    'core',
-    'controllers',
-    'models',
-    'views'
-];
-foreach ($files as $file) {
-    $path = __DIR__ . '/' . $file;
-    if (file_exists($path)) {
-        echo $file . ': ' . substr(sprintf('%o', fileperms($path)), -4) . "\n";
-    } else {
-        echo $file . ': NIET GEVONDEN' . "\n";
-    }
-}
-echo '</pre>';
-
-// Volledige phpinfo voor geavanceerde debugging
-phpinfo();
-EOL
+        # Maak info.php bestand voor debugging
+        echo '<?php' > deploy_tmp/info.php
+        echo '// Debug informatie' >> deploy_tmp/info.php
+        echo "echo '<h1>PHP Info</h1>';" >> deploy_tmp/info.php
+        echo "echo '<h2>PHP Versie</h2>';" >> deploy_tmp/info.php
+        echo "echo phpversion();" >> deploy_tmp/info.php
+        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_tmp/info.php
+        echo "echo '<pre>';" >> deploy_tmp/info.php
+        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
+        echo "echo '</pre>';" >> deploy_tmp/info.php
+        echo "phpinfo();" >> deploy_tmp/info.php
         
         # Toon de uiteindelijke structuur
         echo "Inhoud van deploy_tmp:"
