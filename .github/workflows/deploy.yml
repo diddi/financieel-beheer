@@ -343,60 +343,103 @@ jobs:
         cd ../..
         
         # Speciale controle en fix voor Router.php
-        echo "# Specifieke check voor Router.php"
+        echo "# NIEUWE AANPAK voor Router.php"
+        echo "# Toon huidige inhoud van Router.php als die bestaat"
         if [ -f deploy_all/core/Router.php ]; then
-          echo "Router.php gevonden, symlink naar router.php maken"
-          ln -sf deploy_all/core/Router.php deploy_all/core/router.php
-        elif [ -f deploy_all/core/router.php ]; then
-          echo "router.php gevonden, symlink naar Router.php maken"
-          ln -sf deploy_all/core/router.php deploy_all/core/Router.php
-        else
-          echo "Geen router.php of Router.php gevonden. Bekijk alle bestanden in core:"
-          ls -la deploy_all/core/
-          
-          # Maak een tijdelijke Router class
-          echo "Router bestand niet gevonden, maak een eenvoudige tijdelijke versie"
-          echo '<?php' > deploy_all/core/Router.php
-          echo 'namespace App\\Core;' >> deploy_all/core/Router.php
-          echo '' >> deploy_all/core/Router.php
-          echo '/**' >> deploy_all/core/Router.php
-          echo ' * Basis Router class' >> deploy_all/core/Router.php
-          echo ' */' >> deploy_all/core/Router.php
-          echo 'class Router {' >> deploy_all/core/Router.php
-          echo '    private $routes = [];' >> deploy_all/core/Router.php
-          echo '    ' >> deploy_all/core/Router.php
-          echo '    public function register($path, $handler, $method = "GET") {' >> deploy_all/core/Router.php
-          echo '        $this->routes[] = ["path" => $path, "handler" => $handler, "method" => $method];' >> deploy_all/core/Router.php
-          echo '    }' >> deploy_all/core/Router.php
-          echo '    ' >> deploy_all/core/Router.php
-          echo '    public function dispatch() {' >> deploy_all/core/Router.php
-          echo '        $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? "/";' >> deploy_all/core/Router.php
-          echo '        $method = $_SERVER["REQUEST_METHOD"];' >> deploy_all/core/Router.php
-          echo '        ' >> deploy_all/core/Router.php
-          echo '        foreach ($this->routes as $route) {' >> deploy_all/core/Router.php
-          echo '            if ($route["path"] === $path && $route["method"] === $method) {' >> deploy_all/core/Router.php
-          echo '                $controller = "\\\\App\\\\Controllers\\\\" . $route["handler"]["controller"];' >> deploy_all/core/Router.php
-          echo '                $action = $route["handler"]["action"];' >> deploy_all/core/Router.php
-          echo '                ' >> deploy_all/core/Router.php
-          echo '                if (class_exists($controller)) {' >> deploy_all/core/Router.php
-          echo '                    $controllerInstance = new $controller();' >> deploy_all/core/Router.php
-          echo '                    if (method_exists($controllerInstance, $action)) {' >> deploy_all/core/Router.php
-          echo '                        $controllerInstance->$action();' >> deploy_all/core/Router.php
-          echo '                        return;' >> deploy_all/core/Router.php
-          echo '                    }' >> deploy_all/core/Router.php
-          echo '                }' >> deploy_all/core/Router.php
-          echo '            }' >> deploy_all/core/Router.php
-          echo '        }' >> deploy_all/core/Router.php
-          echo '        ' >> deploy_all/core/Router.php
-          echo '        // Als we hier komen, is er geen route gevonden' >> deploy_all/core/Router.php
-          echo '        header("HTTP/1.0 404 Not Found");' >> deploy_all/core/Router.php
-          echo '        echo "<h1>404 - Pagina niet gevonden</h1>";' >> deploy_all/core/Router.php
-          echo '    }' >> deploy_all/core/Router.php
-          echo '}' >> deploy_all/core/Router.php
-          
-          # Maak symlink
-          ln -sf deploy_all/core/Router.php deploy_all/core/router.php
+          echo "# Router.php inhoud:"
+          cat deploy_all/core/Router.php
         fi
+        
+        # Maak een volledig nieuwe Router.php
+        echo "# Maak een complete nieuwe Router.php"
+        echo '<?php' > deploy_all/core/Router.php
+        echo 'namespace App\\Core;' >> deploy_all/core/Router.php
+        echo '' >> deploy_all/core/Router.php
+        echo '/**' >> deploy_all/core/Router.php
+        echo ' * Basis Router class voor URL routing' >> deploy_all/core/Router.php
+        echo ' */' >> deploy_all/core/Router.php
+        echo 'class Router {' >> deploy_all/core/Router.php
+        echo '    private $routes = [];' >> deploy_all/core/Router.php
+        echo '    ' >> deploy_all/core/Router.php
+        echo '    /**' >> deploy_all/core/Router.php
+        echo '     * Registreer een route' >> deploy_all/core/Router.php
+        echo '     * ' >> deploy_all/core/Router.php
+        echo '     * @param string $path Het URL pad' >> deploy_all/core/Router.php
+        echo '     * @param array $handler Array met controller en action' >> deploy_all/core/Router.php
+        echo '     * @param string $method HTTP methode (GET, POST, etc)' >> deploy_all/core/Router.php
+        echo '     * @return void' >> deploy_all/core/Router.php
+        echo '     */' >> deploy_all/core/Router.php
+        echo '    public function register($path, $handler, $method = "GET") {' >> deploy_all/core/Router.php
+        echo '        $this->routes[] = ["path" => $path, "handler" => $handler, "method" => $method];' >> deploy_all/core/Router.php
+        echo '    }' >> deploy_all/core/Router.php
+        echo '    ' >> deploy_all/core/Router.php
+        echo '    /**' >> deploy_all/core/Router.php
+        echo '     * Dispatch de request naar de juiste controller/action' >> deploy_all/core/Router.php
+        echo '     * ' >> deploy_all/core/Router.php
+        echo '     * @return void' >> deploy_all/core/Router.php
+        echo '     */' >> deploy_all/core/Router.php
+        echo '    public function dispatch() {' >> deploy_all/core/Router.php
+        echo '        $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? "/";' >> deploy_all/core/Router.php
+        echo '        $method = $_SERVER["REQUEST_METHOD"];' >> deploy_all/core/Router.php
+        echo '        ' >> deploy_all/core/Router.php
+        echo '        foreach ($this->routes as $route) {' >> deploy_all/core/Router.php
+        echo '            if ($route["path"] === $path && $route["method"] === $method) {' >> deploy_all/core/Router.php
+        echo '                $controller = "\\\\App\\\\Controllers\\\\" . $route["handler"]["controller"];' >> deploy_all/core/Router.php
+        echo '                $action = $route["handler"]["action"];' >> deploy_all/core/Router.php
+        echo '                ' >> deploy_all/core/Router.php
+        echo '                if (class_exists($controller)) {' >> deploy_all/core/Router.php
+        echo '                    $controllerInstance = new $controller();' >> deploy_all/core/Router.php
+        echo '                    if (method_exists($controllerInstance, $action)) {' >> deploy_all/core/Router.php
+        echo '                        $controllerInstance->$action();' >> deploy_all/core/Router.php
+        echo '                        return;' >> deploy_all/core/Router.php
+        echo '                    }' >> deploy_all/core/Router.php
+        echo '                }' >> deploy_all/core/Router.php
+        echo '            }' >> deploy_all/core/Router.php
+        echo '        }' >> deploy_all/core/Router.php
+        echo '        ' >> deploy_all/core/Router.php
+        echo '        // Als we hier komen, is er geen route gevonden' >> deploy_all/core/Router.php
+        echo '        header("HTTP/1.0 404 Not Found");' >> deploy_all/core/Router.php
+        echo '        echo "<h1>404 - Pagina niet gevonden</h1>";' >> deploy_all/core/Router.php
+        echo '    }' >> deploy_all/core/Router.php
+        echo '}' >> deploy_all/core/Router.php
+        
+        # Maak een hardcopy voor router.php (geen symlink)
+        echo "# Ook router.php (kleine letters) maken als kopie"
+        cp deploy_all/core/Router.php deploy_all/core/router.php
+        
+        # Voeg meer diagnostische informatie toe aan index_debug.php
+        echo '' >> deploy_all/index_debug.php
+        echo "// Gedetailleerde Router diagnostiek" >> deploy_all/index_debug.php
+        echo "echo '<h2>Router diagnostiek</h2>';" >> deploy_all/index_debug.php
+        echo "echo '<div>Router.php bestand controle:</div>';" >> deploy_all/index_debug.php
+        echo "echo '<pre>';" >> deploy_all/index_debug.php
+        echo "if (file_exists('core/Router.php')) {" >> deploy_all/index_debug.php
+        echo "    echo \"Router.php bestaat\\n\";" >> deploy_all/index_debug.php
+        echo "    echo \"Bestandsgrootte: \" . filesize('core/Router.php') . \" bytes\\n\";" >> deploy_all/index_debug.php
+        echo "    echo \"Bestandsrechten: \" . substr(sprintf('%o', fileperms('core/Router.php')), -4) . \"\\n\";" >> deploy_all/index_debug.php
+        echo "    echo \"\\nInhoud van Router.php:\\n\";" >> deploy_all/index_debug.php
+        echo "    echo htmlspecialchars(file_get_contents('core/Router.php'));" >> deploy_all/index_debug.php
+        echo "} else {" >> deploy_all/index_debug.php
+        echo "    echo \"Router.php bestaat NIET\\n\";" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "echo '</pre>';" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Handmatige test om Router te laden" >> deploy_all/index_debug.php
+        echo "echo '<div>Handmatige test om Router.php te laden:</div>';" >> deploy_all/index_debug.php
+        echo "try {" >> deploy_all/index_debug.php
+        echo "    echo '<pre>';" >> deploy_all/index_debug.php
+        echo "    echo \"Probeer Router.php te laden...\\n\";" >> deploy_all/index_debug.php
+        echo "    require_once 'core/Router.php';" >> deploy_all/index_debug.php
+        echo "    echo \"Router.php succesvol geladen\\n\";" >> deploy_all/index_debug.php
+        echo "    echo \"Class App\\\\Core\\\\Router bestaat: \" . (class_exists('\\\\App\\\\Core\\\\Router') ? 'JA' : 'NEE') . \"\\n\";" >> deploy_all/index_debug.php
+        echo "    if (class_exists('\\\\App\\\\Core\\\\Router')) {" >> deploy_all/index_debug.php
+        echo "        echo \"Router methodes:\\n\";" >> deploy_all/index_debug.php
+        echo "        print_r(get_class_methods('\\\\App\\\\Core\\\\Router'));" >> deploy_all/index_debug.php
+        echo "    }" >> deploy_all/index_debug.php
+        echo "    echo '</pre>';" >> deploy_all/index_debug.php
+        echo "} catch (\\Exception \$e) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">Error bij het laden van Router.php: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
         
         # Update database configuratie om het gebruikers probleem op te lossen
         echo "# Database configuratie bijwerken"
