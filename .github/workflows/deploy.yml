@@ -16,458 +16,85 @@ jobs:
     
     - name: Prepare files for deployment
       run: |
+        # Debug mode
+        set -x
+        
         # Eenvoudige approach: alles in één map
+        echo "Stap 1: Mappen aanmaken"
         mkdir -p deploy_all
         
-        # Kopieer alle bestanden (ook de niet-publieke bestanden) naar de root
-        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_all/
+        # Kopieer de belangrijkste bestanden (minder kopiëren om fouten te vermijden)
+        echo "Stap 2: Belangrijkste bestanden kopiëren"
+        cp -r controllers core models views config deploy_all/ || echo "Sommige bestanden konden niet worden gekopieerd"
         
-        # Kopieer public bestanden ook naar de root
-        cp -r public/* deploy_all/
+        echo "Stap 3: Controleren welke bestanden zijn gekopieerd"
+        ls -la deploy_all
         
-        # Onderzoek de bestandsstructuur in core en controllers voor het juiste hoofdlettergebruik
-        echo "Controleren inhoud van core directory:"
-        ls -la core/
-        echo "Controleren concrete Controller bestandsnamen:"
-        find core/ -type f -iname "*controller*.php" -o -iname "*Controller*.php"
+        # Test of het script tot hier komt
+        echo "Stap 4: Autoload.php en index.php maken"
         
-        # Maak database.php bestand
-        mkdir -p deploy_all/config
-        echo '<?php' > deploy_all/config/database.php
-        echo '// Database configuratie' >> deploy_all/config/database.php
-        echo 'return [' >> deploy_all/config/database.php
-        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
-        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_all/config/database.php
-        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_all/config/database.php
-        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_all/config/database.php
-        echo "    'port' => 3306," >> deploy_all/config/database.php
-        echo "    'charset' => 'utf8mb4'," >> deploy_all/config/database.php
-        echo "    'options' => [" >> deploy_all/config/database.php
-        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_all/config/database.php
-        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_all/config/database.php
-        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_all/config/database.php
-        echo "    ]" >> deploy_all/config/database.php
-        echo "];" >> deploy_all/config/database.php
-        
-        # Pas autoload.php aan om te werken met de nieuwe mapstructuur
-        # Eerst backup maken van originele
-        cp deploy_all/autoload.php deploy_all/autoload.php.bak
-        
-        # Nieuw autoload bestand maken
+        # Maak een eenvoudige autoload.php
         echo '<?php' > deploy_all/autoload.php
-        echo '// Aangepaste autoloader voor correcte mapstructuur' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '// Definieer het root pad' >> deploy_all/autoload.php
-        echo 'define("ROOT_PATH", __DIR__);' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '// Registreer de autoloader functie' >> deploy_all/autoload.php
+        echo '// Eenvoudige autoloader' >> deploy_all/autoload.php
         echo 'spl_autoload_register(function($className) {' >> deploy_all/autoload.php
-        echo '    // Vervang namespace separators met directory separators' >> deploy_all/autoload.php
         echo '    $path = str_replace("\\\\", DIRECTORY_SEPARATOR, $className);' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '    // Verwijder de App\ namespace prefix' >> deploy_all/autoload.php
         echo '    $path = str_replace("App" . DIRECTORY_SEPARATOR, "", $path);' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '    // Eerste poging: probeer met exacte casing' >> deploy_all/autoload.php
-        echo '    $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . $path . ".php";' >> deploy_all/autoload.php
-        echo '    ' >> deploy_all/autoload.php
-        echo '    // Als niet gevonden, probeer met lowercase' >> deploy_all/autoload.php
-        echo '    if (!file_exists($filePath)) {' >> deploy_all/autoload.php
-        echo '        $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . strtolower($path) . ".php";' >> deploy_all/autoload.php
-        echo '    }' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '    // Speciale case voor Controller.php en andere core bestanden' >> deploy_all/autoload.php
-        echo '    if (!file_exists($filePath) && strpos($className, "App\\\\Core\\\\") === 0) {' >> deploy_all/autoload.php
-        echo '        $coreName = str_replace("App\\\\Core\\\\", "", $className);' >> deploy_all/autoload.php
-        echo '        ' >> deploy_all/autoload.php
-        echo '        // Probeer met hoofdletter' >> deploy_all/autoload.php
-        echo '        $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . "core" . DIRECTORY_SEPARATOR . $coreName . ".php";' >> deploy_all/autoload.php
-        echo '        ' >> deploy_all/autoload.php
-        echo '        // Probeer met kleine letter' >> deploy_all/autoload.php
-        echo '        if (!file_exists($filePath)) {' >> deploy_all/autoload.php
-        echo '            $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . "core" . DIRECTORY_SEPARATOR . strtolower($coreName) . ".php";' >> deploy_all/autoload.php
-        echo '        }' >> deploy_all/autoload.php
-        echo '    }' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '    // Log voor debugging' >> deploy_all/autoload.php
+        echo '    $filePath = __DIR__ . DIRECTORY_SEPARATOR . $path . ".php";' >> deploy_all/autoload.php
         echo '    if (file_exists($filePath)) {' >> deploy_all/autoload.php
         echo '        require_once $filePath;' >> deploy_all/autoload.php
-        echo '    } else {' >> deploy_all/autoload.php
-        echo '        // Log welke bestanden niet worden gevonden voor debugging' >> deploy_all/autoload.php
-        echo '        file_put_contents(' >> deploy_all/autoload.php
-        echo '            __DIR__ . "/autoload_errors.log",' >> deploy_all/autoload.php
-        echo '            date("Y-m-d H:i:s") . " - Kon bestand niet vinden: $filePath voor class $className\\n",' >> deploy_all/autoload.php
-        echo '            FILE_APPEND' >> deploy_all/autoload.php
-        echo '        );' >> deploy_all/autoload.php
         echo '    }' >> deploy_all/autoload.php
         echo '});' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '// Controleer of we nog andere bestanden moeten includen' >> deploy_all/autoload.php
-        echo '// Composer autoloader als die gebruikt wordt' >> deploy_all/autoload.php
-        echo 'if (file_exists(ROOT_PATH . "/vendor/autoload.php")) {' >> deploy_all/autoload.php
-        echo '    require_once ROOT_PATH . "/vendor/autoload.php";' >> deploy_all/autoload.php
-        echo '}' >> deploy_all/autoload.php
         
-        # Speciale fix voor core/Controller.php bestanden
-        echo "# Controleren welke bestandsnaam Controller.php heeft in de core map"
-        find deploy_all/core -type f -iname "*Controller*.php" || echo "Geen Controller.php gevonden"
-        echo "# Controleren alle bestanden in core:"
-        ls -la deploy_all/core
-        
-        # Maak symlinks voor verschillende hoofdlettermogelijkheden
-        echo "# Symlinks maken voor verschillende hoofdlettervarianten"
-        if [ -f deploy_all/core/Controller.php ]; then
-          echo "Controller.php met hoofdletter gevonden"
-          # Maak een symlink voor lowercase variant
-          ln -sf deploy_all/core/Controller.php deploy_all/core/controller.php
-        elif [ -f deploy_all/core/controller.php ]; then
-          echo "controller.php met kleine letter gevonden"
-          # Maak een symlink voor uppercase variant
-          ln -sf deploy_all/core/controller.php deploy_all/core/Controller.php
-        else
-          echo "Geen controller.php gevonden, directory inhoud controleren:"
-          ls -la deploy_all/core/
-        fi
-        
-        # Maak een eenvoudige controller class als die niet gevonden kan worden
-        if [ ! -f deploy_all/core/Controller.php ] && [ ! -f deploy_all/core/controller.php ]; then
-          echo "Controller bestand niet gevonden, maak een tijdelijke versie"
-          echo '<?php' > deploy_all/core/Controller.php
-          echo 'namespace App\\Core;' >> deploy_all/core/Controller.php
-          echo '' >> deploy_all/core/Controller.php
-          echo '/**' >> deploy_all/core/Controller.php
-          echo ' * Basis Controller class waar andere controllers van kunnen erven' >> deploy_all/core/Controller.php
-          echo ' */' >> deploy_all/core/Controller.php
-          echo 'class Controller {' >> deploy_all/core/Controller.php
-          echo '    /**' >> deploy_all/core/Controller.php
-          echo '     * Controleer of gebruiker is ingelogd, zo niet, redirect naar login pagina' >> deploy_all/core/Controller.php
-          echo '     */' >> deploy_all/core/Controller.php
-          echo '    protected function requireLogin() {' >> deploy_all/core/Controller.php
-          echo '        if (!Auth::check()) {' >> deploy_all/core/Controller.php
-          echo '            header("Location: /login");' >> deploy_all/core/Controller.php
-          echo '            exit;' >> deploy_all/core/Controller.php
-          echo '        }' >> deploy_all/core/Controller.php
-          echo '        return Auth::id();' >> deploy_all/core/Controller.php
-          echo '    }' >> deploy_all/core/Controller.php
-          echo '}' >> deploy_all/core/Controller.php
-        fi
-        
-        # Maak eenvoudige test.php voor debug
+        # Maak een eenvoudige test.php
         echo '<?php' > deploy_all/test.php
-        echo "echo '<h1>Basis PHP Test</h1>';" >> deploy_all/test.php
-        echo "echo 'Huidige map: ' . __DIR__;" >> deploy_all/test.php
-        echo "echo '<br>PHP Versie: ' . phpversion();" >> deploy_all/test.php
+        echo "echo '<h1>Test Pagina</h1>';" >> deploy_all/test.php
+        echo "echo 'De PHP-server werkt!';" >> deploy_all/test.php
         
-        # Maak info.php bestand voor debugging 
-        echo '<?php' > deploy_all/info.php
-        echo '// Debug informatie' >> deploy_all/info.php
-        echo "echo '<h1>PHP Info</h1>';" >> deploy_all/info.php
-        echo "echo '<h2>PHP Versie</h2>';" >> deploy_all/info.php
-        echo "echo phpversion();" >> deploy_all/info.php
-        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_all/info.php
-        echo "echo '<pre>';" >> deploy_all/info.php
-        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'Controller.php map aanwezig: ' . (file_exists(__DIR__ . '/core/Controller.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo 'controller.php map aanwezig: ' . (file_exists(__DIR__ . '/core/controller.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
-        echo "echo '</pre>';" >> deploy_all/info.php
-        echo "phpinfo();" >> deploy_all/info.php
-        
-        # Maak een index_debug.php bestand voor geavanceerde debugging
-        echo '<?php' > deploy_all/index_debug.php
-        echo "// Schakel error reporting in" >> deploy_all/index_debug.php
-        echo "ini_set('display_errors', 1);" >> deploy_all/index_debug.php
-        echo "ini_set('display_startup_errors', 1);" >> deploy_all/index_debug.php
-        echo "error_reporting(E_ALL);" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "echo '<h1>App Debug</h1>';" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Test of autoload werkt" >> deploy_all/index_debug.php
-        echo "echo '<h2>Autoload test</h2>';" >> deploy_all/index_debug.php
-        echo "try {" >> deploy_all/index_debug.php
-        echo "    require_once 'autoload.php';" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:green\">✓ Autoload succesvol geladen</div>';" >> deploy_all/index_debug.php
-        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ Autoload error: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Test of de Controller class bestaat" >> deploy_all/index_debug.php
-        echo "echo '<h2>Controller Class Test</h2>';" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Controleer beide hoofdlettervarianten" >> deploy_all/index_debug.php
-        echo "echo '<div>Controller.php (hoofdletter): ' . (file_exists('core/Controller.php') ? '<span style=\"color:green\">Bestaat</span>' : '<span style=\"color:red\">Bestaat niet</span>') . '</div>';" >> deploy_all/index_debug.php
-        echo "echo '<div>controller.php (kleine letter): ' . (file_exists('core/controller.php') ? '<span style=\"color:green\">Bestaat</span>' : '<span style=\"color:red\">Bestaat niet</span>') . '</div>';" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Toon core directory inhoud" >> deploy_all/index_debug.php
-        echo "echo '<div>Core directory inhoud:</div>';" >> deploy_all/index_debug.php
-        echo "echo '<pre>';" >> deploy_all/index_debug.php
-        echo "echo implode(\"\\n\", array_map('htmlspecialchars', scandir('core')));" >> deploy_all/index_debug.php
-        echo "echo '</pre>';" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Controleer of we het bestand kunnen laden met de juiste naam" >> deploy_all/index_debug.php
-        echo "\$controllerFile = null;" >> deploy_all/index_debug.php
-        echo "if (file_exists('core/Controller.php')) {" >> deploy_all/index_debug.php
-        echo "    \$controllerFile = 'core/Controller.php';" >> deploy_all/index_debug.php
-        echo "} elseif (file_exists('core/controller.php')) {" >> deploy_all/index_debug.php
-        echo "    \$controllerFile = 'core/controller.php';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "if (\$controllerFile) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:green\">✓ Controller bestand gevonden: ' . \$controllerFile . '</div>';" >> deploy_all/index_debug.php
-        echo "    echo '<div>Inhoud:</div>';" >> deploy_all/index_debug.php
-        echo "    echo '<pre>' . htmlspecialchars(file_get_contents(\$controllerFile)) . '</pre>';" >> deploy_all/index_debug.php
-        echo "    " >> deploy_all/index_debug.php
-        echo "    try {" >> deploy_all/index_debug.php
-        echo "        require_once \$controllerFile;" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:green\">✓ ' . \$controllerFile . ' succesvol geladen</div>';" >> deploy_all/index_debug.php
-        echo "    } catch (Exception \$e) {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:red\">✗ Error bij laden van ' . \$controllerFile . ': ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
-        echo "    }" >> deploy_all/index_debug.php
-        echo "} else {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ Geen controller.php of Controller.php gevonden</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Test of de App\\Core\\Controller class bestaat" >> deploy_all/index_debug.php
-        echo "echo '<h2>Core\\Controller class test</h2>';" >> deploy_all/index_debug.php
-        echo "if (class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:green\">✓ App\\Core\\Controller class bestaat</div>';" >> deploy_all/index_debug.php
-        echo "    echo '<pre>';" >> deploy_all/index_debug.php
-        echo "    echo 'Class methods:\\n';" >> deploy_all/index_debug.php
-        echo "    print_r(get_class_methods('\\\\App\\\\Core\\\\Controller'));" >> deploy_all/index_debug.php
-        echo "    echo '</pre>';" >> deploy_all/index_debug.php
-        echo "} else {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ App\\Core\\Controller class bestaat niet</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Test database connectie" >> deploy_all/index_debug.php
-        echo "echo '<h2>Database connectie test</h2>';" >> deploy_all/index_debug.php
-        echo "try {" >> deploy_all/index_debug.php
-        echo "    \$dbConfig = require_once 'config/database.php';" >> deploy_all/index_debug.php
-        echo "    echo '<div>Database configuratie:</div>';" >> deploy_all/index_debug.php
-        echo "    echo '<pre>';" >> deploy_all/index_debug.php
-        echo "    // Wachtwoord verbergen in de output" >> deploy_all/index_debug.php
-        echo "    \$configForDisplay = \$dbConfig;" >> deploy_all/index_debug.php
-        echo "    \$configForDisplay['password'] = '********';" >> deploy_all/index_debug.php
-        echo "    print_r(\$configForDisplay);" >> deploy_all/index_debug.php
-        echo "    echo '</pre>';" >> deploy_all/index_debug.php
-        echo "    " >> deploy_all/index_debug.php
-        echo "    // Probeer verbinding te maken" >> deploy_all/index_debug.php
-        echo "    \$dsn = \"mysql:host={\$dbConfig['host']};dbname={\$dbConfig['database']};charset={\$dbConfig['charset']}\";" >> deploy_all/index_debug.php
-        echo "    \$pdo = new PDO(\$dsn, \$dbConfig['username'], \$dbConfig['password'], \$dbConfig['options']);" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:green\">✓ Database verbinding succesvol</div>';" >> deploy_all/index_debug.php
-        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ Database error: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Test of de core classes laden" >> deploy_all/index_debug.php
-        echo "echo '<h2>Core classes test</h2>';" >> deploy_all/index_debug.php
-        echo "try {" >> deploy_all/index_debug.php
-        echo "    if (class_exists('\\\\App\\\\Core\\\\Router')) {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:green\">✓ Router class bestaat</div>';" >> deploy_all/index_debug.php
-        echo "    } else {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:red\">✗ Router class niet gevonden</div>';" >> deploy_all/index_debug.php
-        echo "    }" >> deploy_all/index_debug.php
-        echo "    " >> deploy_all/index_debug.php
-        echo "    if (class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:green\">✓ Controller class bestaat</div>';" >> deploy_all/index_debug.php
-        echo "    } else {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:red\">✗ Controller class niet gevonden</div>';" >> deploy_all/index_debug.php
-        echo "    }" >> deploy_all/index_debug.php
-        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ Error bij laden van classes: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "echo '<h2>Index.php bekijken</h2>';" >> deploy_all/index_debug.php
-        echo "echo '<pre>';" >> deploy_all/index_debug.php
-        echo "echo htmlspecialchars(file_get_contents('index.php'));" >> deploy_all/index_debug.php
-        echo "echo '</pre>';" >> deploy_all/index_debug.php
-        
-        # Maak nieuwe, zeer eenvoudige .htaccess
-        echo 'RewriteEngine On' > deploy_all/.htaccess
-        echo 'RewriteBase /' >> deploy_all/.htaccess
-        echo '' >> deploy_all/.htaccess
-        echo '# Alleen redirect naar index.php als bestand of directory niet bestaat' >> deploy_all/.htaccess
-        echo 'RewriteCond %{REQUEST_FILENAME} !-f' >> deploy_all/.htaccess
-        echo 'RewriteCond %{REQUEST_FILENAME} !-d' >> deploy_all/.htaccess
-        echo 'RewriteRule ^(.*)$ index.php [QSA,L]' >> deploy_all/.htaccess
-        echo '' >> deploy_all/.htaccess
-        echo '# Schakel PHP error reporting in voor debugging' >> deploy_all/.htaccess
-        echo 'php_flag display_errors on' >> deploy_all/.htaccess
-        echo 'php_value error_reporting E_ALL' >> deploy_all/.htaccess
-        
-        # Toon de uiteindelijke structuur
-        echo "Inhoud van deploy_all/:"
-        ls -la deploy_all/
-        
-        # Specifieke controle en fix voor Router.php en andere core files
-        echo "# Extra controle en fixes voor alle core bestanden"
-        cd deploy_all/core
-        for file in *.php; do
-          # Verkrijg de basename zonder extensie
-          basename=$(basename "$file" .php)
-          
-          # Maak lowercase variant
-          lowercase=$(echo "$basename" | tr '[:upper:]' '[:lower:]')
-          
-          # Maak uppercase voor eerste letter
-          firstChar=$(echo "$basename" | cut -c1 | tr '[:lower:]' '[:upper:]')
-          restChars=$(echo "$basename" | cut -c2-)
-          upperFirst="$firstChar$restChars"
-          
-          # Als de bestandsnaam niet allemaal lowercase of niet met hoofdletter begint is
-          if [ "$basename" != "$lowercase" ] && [ "$basename" != "$upperFirst" ]; then
-            echo "Normaliseren van bestandsnaam: $basename.php"
-            # Maak een kopie met gestandaardiseerde naam (eerste letter hoofdletter)
-            cp "$file" "$upperFirst.php"
-            # Maak een symlink voor lowercase variant
-            ln -sf "$upperFirst.php" "$lowercase.php"
-          fi
-          
-          # Als het bestaat met hoofdletter maar niet met kleine letter
-          if [ -f "$upperFirst.php" ] && [ ! -f "$lowercase.php" ]; then
-            echo "Symlink maken van $upperFirst.php naar $lowercase.php"
-            ln -sf "$upperFirst.php" "$lowercase.php"
-          fi
-          
-          # Als het bestaat met kleine letter maar niet met hoofdletter
-          if [ -f "$lowercase.php" ] && [ ! -f "$upperFirst.php" ]; then
-            echo "Symlink maken van $lowercase.php naar $upperFirst.php"
-            ln -sf "$lowercase.php" "$upperFirst.php"
-          fi
-        done
-        cd ../..
-        
-        # Speciale controle en fix voor Router.php
-        echo "# NIEUWE AANPAK voor Router.php"
-        echo "# Toon huidige inhoud van Router.php als die bestaat"
-        if [ -f deploy_all/core/Router.php ]; then
-          echo "# Router.php inhoud:"
-          cat deploy_all/core/Router.php
-        fi
-        
-        # Maak een volledig nieuwe Router.php
-        echo "# Maak een complete nieuwe Router.php"
+        # Maak een eenvoudige Router.php
+        echo "Stap 5: Router.php maken"
+        mkdir -p deploy_all/core
         echo '<?php' > deploy_all/core/Router.php
         echo 'namespace App\\Core;' >> deploy_all/core/Router.php
-        echo '' >> deploy_all/core/Router.php
-        echo '/**' >> deploy_all/core/Router.php
-        echo ' * Basis Router class voor URL routing' >> deploy_all/core/Router.php
-        echo ' */' >> deploy_all/core/Router.php
         echo 'class Router {' >> deploy_all/core/Router.php
         echo '    private $routes = [];' >> deploy_all/core/Router.php
-        echo '    ' >> deploy_all/core/Router.php
-        echo '    /**' >> deploy_all/core/Router.php
-        echo '     * Registreer een route' >> deploy_all/core/Router.php
-        echo '     * ' >> deploy_all/core/Router.php
-        echo '     * @param string $path Het URL pad' >> deploy_all/core/Router.php
-        echo '     * @param array $handler Array met controller en action' >> deploy_all/core/Router.php
-        echo '     * @param string $method HTTP methode (GET, POST, etc)' >> deploy_all/core/Router.php
-        echo '     * @return void' >> deploy_all/core/Router.php
-        echo '     */' >> deploy_all/core/Router.php
         echo '    public function register($path, $handler, $method = "GET") {' >> deploy_all/core/Router.php
         echo '        $this->routes[] = ["path" => $path, "handler" => $handler, "method" => $method];' >> deploy_all/core/Router.php
         echo '    }' >> deploy_all/core/Router.php
-        echo '    ' >> deploy_all/core/Router.php
-        echo '    /**' >> deploy_all/core/Router.php
-        echo '     * Dispatch de request naar de juiste controller/action' >> deploy_all/core/Router.php
-        echo '     * ' >> deploy_all/core/Router.php
-        echo '     * @return void' >> deploy_all/core/Router.php
-        echo '     */' >> deploy_all/core/Router.php
         echo '    public function dispatch() {' >> deploy_all/core/Router.php
-        echo '        $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? "/";' >> deploy_all/core/Router.php
-        echo '        $method = $_SERVER["REQUEST_METHOD"];' >> deploy_all/core/Router.php
-        echo '        ' >> deploy_all/core/Router.php
-        echo '        foreach ($this->routes as $route) {' >> deploy_all/core/Router.php
-        echo '            if ($route["path"] === $path && $route["method"] === $method) {' >> deploy_all/core/Router.php
-        echo '                $controller = "\\\\App\\\\Controllers\\\\" . $route["handler"]["controller"];' >> deploy_all/core/Router.php
-        echo '                $action = $route["handler"]["action"];' >> deploy_all/core/Router.php
-        echo '                ' >> deploy_all/core/Router.php
-        echo '                if (class_exists($controller)) {' >> deploy_all/core/Router.php
-        echo '                    $controllerInstance = new $controller();' >> deploy_all/core/Router.php
-        echo '                    if (method_exists($controllerInstance, $action)) {' >> deploy_all/core/Router.php
-        echo '                        $controllerInstance->$action();' >> deploy_all/core/Router.php
-        echo '                        return;' >> deploy_all/core/Router.php
-        echo '                    }' >> deploy_all/core/Router.php
-        echo '                }' >> deploy_all/core/Router.php
-        echo '            }' >> deploy_all/core/Router.php
-        echo '        }' >> deploy_all/core/Router.php
-        echo '        ' >> deploy_all/core/Router.php
-        echo '        // Als we hier komen, is er geen route gevonden' >> deploy_all/core/Router.php
-        echo '        header("HTTP/1.0 404 Not Found");' >> deploy_all/core/Router.php
-        echo '        echo "<h1>404 - Pagina niet gevonden</h1>";' >> deploy_all/core/Router.php
+        echo '        echo "<h1>Router Test Pagina</h1>";' >> deploy_all/core/Router.php
+        echo '        echo "<p>Als je dit ziet, werkt de router!</p>";' >> deploy_all/core/Router.php
         echo '    }' >> deploy_all/core/Router.php
         echo '}' >> deploy_all/core/Router.php
         
-        # Maak een hardcopy voor router.php (geen symlink)
-        echo "# Ook router.php (kleine letters) maken als kopie"
+        # Maak lowercase variant
         cp deploy_all/core/Router.php deploy_all/core/router.php
         
-        # Voeg meer diagnostische informatie toe aan index_debug.php
-        echo '' >> deploy_all/index_debug.php
-        echo "// Gedetailleerde Router diagnostiek" >> deploy_all/index_debug.php
-        echo "echo '<h2>Router diagnostiek</h2>';" >> deploy_all/index_debug.php
-        echo "echo '<div>Router.php bestand controle:</div>';" >> deploy_all/index_debug.php
-        echo "echo '<pre>';" >> deploy_all/index_debug.php
-        echo "if (file_exists('core/Router.php')) {" >> deploy_all/index_debug.php
-        echo "    echo \"Router.php bestaat\\n\";" >> deploy_all/index_debug.php
-        echo "    echo \"Bestandsgrootte: \" . filesize('core/Router.php') . \" bytes\\n\";" >> deploy_all/index_debug.php
-        echo "    echo \"Bestandsrechten: \" . substr(sprintf('%o', fileperms('core/Router.php')), -4) . \"\\n\";" >> deploy_all/index_debug.php
-        echo "    echo \"\\nInhoud van Router.php:\\n\";" >> deploy_all/index_debug.php
-        echo "    echo htmlspecialchars(file_get_contents('core/Router.php'));" >> deploy_all/index_debug.php
-        echo "} else {" >> deploy_all/index_debug.php
-        echo "    echo \"Router.php bestaat NIET\\n\";" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
-        echo "echo '</pre>';" >> deploy_all/index_debug.php
-        echo "" >> deploy_all/index_debug.php
-        echo "// Handmatige test om Router te laden" >> deploy_all/index_debug.php
-        echo "echo '<div>Handmatige test om Router.php te laden:</div>';" >> deploy_all/index_debug.php
-        echo "try {" >> deploy_all/index_debug.php
-        echo "    echo '<pre>';" >> deploy_all/index_debug.php
-        echo "    echo \"Probeer Router.php te laden...\\n\";" >> deploy_all/index_debug.php
-        echo "    require_once 'core/Router.php';" >> deploy_all/index_debug.php
-        echo "    echo \"Router.php succesvol geladen\\n\";" >> deploy_all/index_debug.php
-        echo "    echo \"Class App\\\\Core\\\\Router bestaat: \" . (class_exists('\\\\App\\\\Core\\\\Router') ? 'JA' : 'NEE') . \"\\n\";" >> deploy_all/index_debug.php
-        echo "    if (class_exists('\\\\App\\\\Core\\\\Router')) {" >> deploy_all/index_debug.php
-        echo "        echo \"Router methodes:\\n\";" >> deploy_all/index_debug.php
-        echo "        print_r(get_class_methods('\\\\App\\\\Core\\\\Router'));" >> deploy_all/index_debug.php
-        echo "    }" >> deploy_all/index_debug.php
-        echo "    echo '</pre>';" >> deploy_all/index_debug.php
-        echo "} catch (\\Exception \$e) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">Error bij het laden van Router.php: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
-        echo "}" >> deploy_all/index_debug.php
+        # Maak een eenvoudige Controller.php
+        echo "Stap 6: Controller.php maken"
+        echo '<?php' > deploy_all/core/Controller.php
+        echo 'namespace App\\Core;' >> deploy_all/core/Controller.php
+        echo 'class Controller {' >> deploy_all/core/Controller.php
+        echo '    protected function requireLogin() {' >> deploy_all/core/Controller.php
+        echo '        return 1;' >> deploy_all/core/Controller.php
+        echo '    }' >> deploy_all/core/Controller.php
+        echo '}' >> deploy_all/core/Controller.php
         
-        # Update database configuratie om het gebruikers probleem op te lossen
-        echo "# Database configuratie bijwerken"
-        echo '<?php' > deploy_all/config/database.php
-        echo '// Database configuratie' >> deploy_all/config/database.php
-        echo 'return [' >> deploy_all/config/database.php
-        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
-        echo "    'port' => 3306," >> deploy_all/config/database.php
-        echo "    'database' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
-        echo "    'username' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
-        echo "    'password' => 'voer_hier_je_wachtwoord_in', // WIJZIG DIT naar je juiste database wachtwoord" >> deploy_all/config/database.php
-        echo "    'charset' => 'utf8mb4'," >> deploy_all/config/database.php
-        echo "    'options' => [" >> deploy_all/config/database.php
-        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_all/config/database.php
-        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_all/config/database.php
-        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_all/config/database.php
-        echo "    ]" >> deploy_all/config/database.php
-        echo "];" >> deploy_all/config/database.php
+        # Maak lowercase variant
+        cp deploy_all/core/Controller.php deploy_all/core/controller.php
         
-        # Voeg instructies toe aan de database debug pagina
-        echo '' >> deploy_all/index_debug.php
-        echo "echo '<h2>Volgende stappen</h2>';" >> deploy_all/index_debug.php
-        echo "echo '<div style=\"background-color: #f8f9fa; padding: 15px; border-left: 5px solid #007bff;\">';" >> deploy_all/index_debug.php
-        echo "echo '<p><strong>Database error oplossen:</strong> Je moet het config/database.php bestand aanpassen met de juiste inloggegevens.</p>';" >> deploy_all/index_debug.php
-        echo "echo '<p>Zoek in je FTP omgeving naar het bestand <code>config/database.php</code> en wijzig de wachtwoordregel:</p>';" >> deploy_all/index_debug.php
-        echo "echo '<pre>\"password\" => \"voer_hier_je_wachtwoord_in\", // WIJZIG DIT</pre>';" >> deploy_all/index_debug.php
-        echo "echo '<p>Vervang <code>voer_hier_je_wachtwoord_in</code> door je juiste database wachtwoord dat je hebt ontvangen van je hosting provider.</p>';" >> deploy_all/index_debug.php
-        echo "echo '</div>';" >> deploy_all/index_debug.php
+        # Maak een eenvoudige index.php die de router gebruikt
+        echo "Stap 7: Index.php maken"
+        echo '<?php' > deploy_all/index.php
+        echo 'require_once "autoload.php";' >> deploy_all/index.php
+        echo 'use App\\Core\\Router;' >> deploy_all/index.php
+        echo '$router = new Router();' >> deploy_all/index.php
+        echo '$router->dispatch();' >> deploy_all/index.php
+        
+        # Verifieer de uiteindelijke structuur
+        echo "Stap 8: Finale structuur controleren"
+        find deploy_all -type f | sort
+        
+        echo "Deployment bestanden voorbereid"
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -480,7 +107,6 @@ jobs:
         exclude: |
           **/.git*
           **/.git*/**
-          **/node_modules/**
           .env
           README.md
           .DS_Store
@@ -492,4 +118,3 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
-# 4. Deze workflow uploadt alles naar de public_html map om te testen!
