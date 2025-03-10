@@ -67,6 +67,67 @@ jobs:
         echo "echo '</pre>';" >> deploy_all/info.php
         echo "phpinfo();" >> deploy_all/info.php
         
+        # Maak een index_debug.php bestand voor geavanceerde debugging
+        echo '<?php' > deploy_all/index_debug.php
+        echo "// Schakel error reporting in" >> deploy_all/index_debug.php
+        echo "ini_set('display_errors', 1);" >> deploy_all/index_debug.php
+        echo "ini_set('display_startup_errors', 1);" >> deploy_all/index_debug.php
+        echo "error_reporting(E_ALL);" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "echo '<h1>App Debug</h1>';" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Test of autoload werkt" >> deploy_all/index_debug.php
+        echo "echo '<h2>Autoload test</h2>';" >> deploy_all/index_debug.php
+        echo "try {" >> deploy_all/index_debug.php
+        echo "    require_once 'autoload.php';" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:green\">✓ Autoload succesvol geladen</div>';" >> deploy_all/index_debug.php
+        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ Autoload error: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Test database connectie" >> deploy_all/index_debug.php
+        echo "echo '<h2>Database connectie test</h2>';" >> deploy_all/index_debug.php
+        echo "try {" >> deploy_all/index_debug.php
+        echo "    \$dbConfig = require_once 'config/database.php';" >> deploy_all/index_debug.php
+        echo "    echo '<div>Database configuratie:</div>';" >> deploy_all/index_debug.php
+        echo "    echo '<pre>';" >> deploy_all/index_debug.php
+        echo "    // Wachtwoord verbergen in de output" >> deploy_all/index_debug.php
+        echo "    \$configForDisplay = \$dbConfig;" >> deploy_all/index_debug.php
+        echo "    \$configForDisplay['password'] = '********';" >> deploy_all/index_debug.php
+        echo "    print_r(\$configForDisplay);" >> deploy_all/index_debug.php
+        echo "    echo '</pre>';" >> deploy_all/index_debug.php
+        echo "    " >> deploy_all/index_debug.php
+        echo "    // Probeer verbinding te maken" >> deploy_all/index_debug.php
+        echo "    \$dsn = \"mysql:host={\$dbConfig['host']};dbname={\$dbConfig['database']};charset={\$dbConfig['charset']}\";" >> deploy_all/index_debug.php
+        echo "    \$pdo = new PDO(\$dsn, \$dbConfig['username'], \$dbConfig['password'], \$dbConfig['options']);" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:green\">✓ Database verbinding succesvol</div>';" >> deploy_all/index_debug.php
+        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ Database error: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Test of de core classes laden" >> deploy_all/index_debug.php
+        echo "echo '<h2>Core classes test</h2>';" >> deploy_all/index_debug.php
+        echo "try {" >> deploy_all/index_debug.php
+        echo "    if (class_exists('\\\\App\\\\Core\\\\Router')) {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:green\">✓ Router class bestaat</div>';" >> deploy_all/index_debug.php
+        echo "    } else {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:red\">✗ Router class niet gevonden</div>';" >> deploy_all/index_debug.php
+        echo "    }" >> deploy_all/index_debug.php
+        echo "    " >> deploy_all/index_debug.php
+        echo "    if (class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:green\">✓ Controller class bestaat</div>';" >> deploy_all/index_debug.php
+        echo "    } else {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:red\">✗ Controller class niet gevonden</div>';" >> deploy_all/index_debug.php
+        echo "    }" >> deploy_all/index_debug.php
+        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ Error bij laden van classes: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "echo '<h2>Index.php bekijken</h2>';" >> deploy_all/index_debug.php
+        echo "echo '<pre>';" >> deploy_all/index_debug.php
+        echo "echo htmlspecialchars(file_get_contents('index.php'));" >> deploy_all/index_debug.php
+        echo "echo '</pre>';" >> deploy_all/index_debug.php
+        
         # Maak nieuwe, zeer eenvoudige .htaccess
         echo 'RewriteEngine On' > deploy_all/.htaccess
         echo 'RewriteBase /' >> deploy_all/.htaccess
