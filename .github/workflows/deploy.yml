@@ -22,38 +22,135 @@ jobs:
         # Eenvoudige approach: alles in één map
         echo "Stap 1: Mappen aanmaken"
         mkdir -p deploy_all
+        mkdir -p deploy_all/controllers
+        mkdir -p deploy_all/models
+        mkdir -p deploy_all/views
+        mkdir -p deploy_all/config
         
-        # Alleen eenvoudige bestanden maken, geen namespaces
-        echo "Stap 2: Super eenvoudige structuur maken"
-        
-        # Test PHP bestand
+        # Behoud de werkende testbestanden
+        echo "Stap 2: Werkende testbestanden behouden"
         echo '<?php' > deploy_all/test.php
         echo "echo '<h1>Test Pagina</h1>';" >> deploy_all/test.php
         echo "echo '<p>De PHP-server werkt!</p>';" >> deploy_all/test.php
         
-        # Info bestand
         echo '<?php' > deploy_all/info.php
         echo "phpinfo();" >> deploy_all/info.php
         
-        # Supereenvoudige index zonder namespace
+        # Maak een eenvoudige config
+        echo "Stap 3: Config bestanden maken"
+        echo '<?php' > deploy_all/config/database.php
+        echo "return [" >> deploy_all/config/database.php
+        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
+        echo "    'dbname' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
+        echo "    'username' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
+        echo "    'password' => 'JOUW_WACHTWOORD_HIER', // Dit moet je aanpassen!" >> deploy_all/config/database.php
+        echo "    'charset' => 'utf8mb4'" >> deploy_all/config/database.php
+        echo "];" >> deploy_all/config/database.php
+        
+        # Maak een eenvoudige controller
+        echo "Stap 4: Controller maken"
+        echo '<?php' > deploy_all/controllers/HomeController.php
+        echo "// Eenvoudige Home Controller" >> deploy_all/controllers/HomeController.php
+        echo "class HomeController {" >> deploy_all/controllers/HomeController.php
+        echo "    public function index() {" >> deploy_all/controllers/HomeController.php
+        echo "        // Toon de homepagina" >> deploy_all/controllers/HomeController.php
+        echo "        include 'views/header.php';" >> deploy_all/controllers/HomeController.php
+        echo "        include 'views/home.php';" >> deploy_all/controllers/HomeController.php
+        echo "        include 'views/footer.php';" >> deploy_all/controllers/HomeController.php
+        echo "    }" >> deploy_all/controllers/HomeController.php
+        echo "}" >> deploy_all/controllers/HomeController.php
+        
+        # Maak eenvoudige view bestanden
+        echo "Stap 5: Views maken"
+        echo '<!DOCTYPE html>' > deploy_all/views/header.php
+        echo '<html lang="nl">' >> deploy_all/views/header.php
+        echo '<head>' >> deploy_all/views/header.php
+        echo '    <meta charset="UTF-8">' >> deploy_all/views/header.php
+        echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> deploy_all/views/header.php
+        echo '    <title>Financieel Beheer</title>' >> deploy_all/views/header.php
+        echo '    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">' >> deploy_all/views/header.php
+        echo '</head>' >> deploy_all/views/header.php
+        echo '<body>' >> deploy_all/views/header.php
+        echo '<div class="container mt-4">' >> deploy_all/views/header.php
+        
+        echo '<h1 class="mb-4">Welkom bij Financieel Beheer</h1>' > deploy_all/views/home.php
+        echo '<div class="alert alert-info">' >> deploy_all/views/home.php
+        echo '    <strong>Status:</strong> Deze versie is een vereenvoudigde versie om de MVC-structuur te testen.' >> deploy_all/views/home.php
+        echo '</div>' >> deploy_all/views/home.php
+        echo '' >> deploy_all/views/home.php
+        echo '<div class="row">' >> deploy_all/views/home.php
+        echo '    <div class="col-md-6">' >> deploy_all/views/home.php
+        echo '        <div class="card mb-4">' >> deploy_all/views/home.php
+        echo '            <div class="card-header">Snelkoppelingen</div>' >> deploy_all/views/home.php
+        echo '            <div class="card-body">' >> deploy_all/views/home.php
+        echo '                <ul class="list-group">' >> deploy_all/views/home.php
+        echo '                    <li class="list-group-item"><a href="test.php">Test Pagina</a></li>' >> deploy_all/views/home.php
+        echo '                    <li class="list-group-item"><a href="info.php">PHP Info</a></li>' >> deploy_all/views/home.php
+        echo '                </ul>' >> deploy_all/views/home.php
+        echo '            </div>' >> deploy_all/views/home.php
+        echo '        </div>' >> deploy_all/views/home.php
+        echo '    </div>' >> deploy_all/views/home.php
+        echo '    <div class="col-md-6">' >> deploy_all/views/home.php
+        echo '        <div class="card mb-4">' >> deploy_all/views/home.php
+        echo '            <div class="card-header">Info</div>' >> deploy_all/views/home.php
+        echo '            <div class="card-body">' >> deploy_all/views/home.php
+        echo '                <p>Dit is een vereenvoudigde versie van de applicatie.</p>' >> deploy_all/views/home.php
+        echo '                <p>De volledige versie volgt binnenkort!</p>' >> deploy_all/views/home.php
+        echo '            </div>' >> deploy_all/views/home.php
+        echo '        </div>' >> deploy_all/views/home.php
+        echo '    </div>' >> deploy_all/views/home.php
+        echo '</div>' >> deploy_all/views/home.php
+        
+        echo '</div>' > deploy_all/views/footer.php
+        echo '<footer class="mt-5 mb-3 text-center text-muted">' >> deploy_all/views/footer.php
+        echo '    <p>&copy; 2023 Financieel Beheer</p>' >> deploy_all/views/footer.php
+        echo '</footer>' >> deploy_all/views/footer.php
+        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>' >> deploy_all/views/footer.php
+        echo '</body>' >> deploy_all/views/footer.php
+        echo '</html>' >> deploy_all/views/footer.php
+        
+        # Maak de index file die de home controller gebruikt
+        echo "Stap 6: Index maken die de controller gebruikt"
         echo '<?php' > deploy_all/index.php
-        echo "echo '<h1>Welkom bij Financieel Beheer</h1>';" >> deploy_all/index.php
-        echo "echo '<p>Deze versie is een tijdelijke testversie om de deployment te controleren.</p>';" >> deploy_all/index.php
-        echo "echo '<p>Als je deze pagina ziet, werkt de webserver correct!</p>';" >> deploy_all/index.php
-        echo "echo '<p><a href=\"test.php\">Test pagina bekijken</a> | <a href=\"info.php\">PHP info bekijken</a></p>';" >> deploy_all/index.php
+        echo "// Laad de controller" >> deploy_all/index.php
+        echo "require_once 'controllers/HomeController.php';" >> deploy_all/index.php
+        echo "" >> deploy_all/index.php
+        echo "// Maak een instantie van de controller" >> deploy_all/index.php
+        echo "\$controller = new HomeController();" >> deploy_all/index.php
+        echo "\$controller->index();" >> deploy_all/index.php
+        
+        # Database verbinding tester
+        echo "Stap 7: Database tester maken"
+        echo '<?php' > deploy_all/db_test.php
+        echo "// Test database verbinding" >> deploy_all/db_test.php
+        echo "echo '<h1>Database Verbindingstest</h1>';" >> deploy_all/db_test.php
+        echo "try {" >> deploy_all/db_test.php
+        echo "    \$config = require_once 'config/database.php';" >> deploy_all/db_test.php
+        echo "    echo '<p>Database configuratie geladen.</p>';" >> deploy_all/db_test.php
+        echo "    " >> deploy_all/db_test.php
+        echo "    \$dsn = \"mysql:host={\$config['host']};dbname={\$config['dbname']};charset={\$config['charset']}\";" >> deploy_all/db_test.php
+        echo "    \$pdo = new PDO(\$dsn, \$config['username'], \$config['password']);" >> deploy_all/db_test.php
+        echo "    \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);" >> deploy_all/db_test.php
+        echo "    " >> deploy_all/db_test.php
+        echo "    echo '<p style=\"color:green\">✓ Database verbinding succesvol!</p>';" >> deploy_all/db_test.php
+        echo "    echo '<p>Je kunt nu de <a href=\"index.php\">homepagina</a> bekijken.</p>';" >> deploy_all/db_test.php
+        echo "} catch (PDOException \$e) {" >> deploy_all/db_test.php
+        echo "    echo '<p style=\"color:red\">✗ Database fout: ' . \$e->getMessage() . '</p>';" >> deploy_all/db_test.php
+        echo "    echo '<p>Controleer of je het juiste wachtwoord hebt ingesteld in config/database.php.</p>';" >> deploy_all/db_test.php
+        echo "}" >> deploy_all/db_test.php
         
         # .htaccess redirect bestand
-        echo "Stap 3: .htaccess maken"
+        echo "Stap 8: .htaccess maken"
         echo 'RewriteEngine On' > deploy_all/.htaccess
         echo 'RewriteBase /' >> deploy_all/.htaccess
         echo '# PHP Fouten tonen' >> deploy_all/.htaccess
         echo 'php_flag display_errors on' >> deploy_all/.htaccess
         
         # Verifieer de uiteindelijke structuur
-        echo "Stap 4: Finale structuur controleren"
+        echo "Stap 9: Finale structuur controleren"
         find deploy_all -type f | sort
         
-        echo "Super eenvoudige deployment bestanden voorbereid"
+        echo "MVC structuur deployment bestanden voorbereid"
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
