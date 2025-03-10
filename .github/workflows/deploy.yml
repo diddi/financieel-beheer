@@ -25,6 +25,12 @@ jobs:
         # Kopieer public bestanden ook naar de root
         cp -r public/* deploy_all/
         
+        # Onderzoek de bestandsstructuur in core en controllers voor het juiste hoofdlettergebruik
+        echo "Controleren inhoud van core directory:"
+        ls -la core/
+        echo "Controleren concrete Controller bestandsnamen:"
+        find core/ -type f -iname "*controller*.php" -o -iname "*Controller*.php"
+        
         # Maak database.php bestand
         mkdir -p deploy_all/config
         echo '<?php' > deploy_all/config/database.php
@@ -62,8 +68,26 @@ jobs:
         echo '    // Verwijder de App\ namespace prefix' >> deploy_all/autoload.php
         echo '    $path = str_replace("App" . DIRECTORY_SEPARATOR, "", $path);' >> deploy_all/autoload.php
         echo '' >> deploy_all/autoload.php
-        echo '    // Bepaal het volledige pad naar het bestand' >> deploy_all/autoload.php
-        echo '    $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . strtolower($path) . ".php";' >> deploy_all/autoload.php
+        echo '    // Eerste poging: probeer met exacte casing' >> deploy_all/autoload.php
+        echo '    $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . $path . ".php";' >> deploy_all/autoload.php
+        echo '    ' >> deploy_all/autoload.php
+        echo '    // Als niet gevonden, probeer met lowercase' >> deploy_all/autoload.php
+        echo '    if (!file_exists($filePath)) {' >> deploy_all/autoload.php
+        echo '        $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . strtolower($path) . ".php";' >> deploy_all/autoload.php
+        echo '    }' >> deploy_all/autoload.php
+        echo '' >> deploy_all/autoload.php
+        echo '    // Speciale case voor Controller.php en andere core bestanden' >> deploy_all/autoload.php
+        echo '    if (!file_exists($filePath) && strpos($className, "App\\\\Core\\\\") === 0) {' >> deploy_all/autoload.php
+        echo '        $coreName = str_replace("App\\\\Core\\\\", "", $className);' >> deploy_all/autoload.php
+        echo '        ' >> deploy_all/autoload.php
+        echo '        // Probeer met hoofdletter' >> deploy_all/autoload.php
+        echo '        $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . "core" . DIRECTORY_SEPARATOR . $coreName . ".php";' >> deploy_all/autoload.php
+        echo '        ' >> deploy_all/autoload.php
+        echo '        // Probeer met kleine letter' >> deploy_all/autoload.php
+        echo '        if (!file_exists($filePath)) {' >> deploy_all/autoload.php
+        echo '            $filePath = ROOT_PATH . DIRECTORY_SEPARATOR . "core" . DIRECTORY_SEPARATOR . strtolower($coreName) . ".php";' >> deploy_all/autoload.php
+        echo '        }' >> deploy_all/autoload.php
+        echo '    }' >> deploy_all/autoload.php
         echo '' >> deploy_all/autoload.php
         echo '    // Log voor debugging' >> deploy_all/autoload.php
         echo '    if (file_exists($filePath)) {' >> deploy_all/autoload.php
@@ -83,28 +107,50 @@ jobs:
         echo 'if (file_exists(ROOT_PATH . "/vendor/autoload.php")) {' >> deploy_all/autoload.php
         echo '    require_once ROOT_PATH . "/vendor/autoload.php";' >> deploy_all/autoload.php
         echo '}' >> deploy_all/autoload.php
-        echo '' >> deploy_all/autoload.php
-        echo '// Helper functie om namespaces uit te debuggen (voor troubleshooting)' >> deploy_all/autoload.php
-        echo 'function get_declared_namespaces() {' >> deploy_all/autoload.php
-        echo '    $classes = get_declared_classes();' >> deploy_all/autoload.php
-        echo '    $namespaces = [];' >> deploy_all/autoload.php
-        echo '    ' >> deploy_all/autoload.php
-        echo '    foreach ($classes as $class) {' >> deploy_all/autoload.php
-        echo '        $parts = explode("\\\\", $class);' >> deploy_all/autoload.php
-        echo '        array_pop($parts); // Verwijder de class naam' >> deploy_all/autoload.php
-        echo '        $namespace = implode("\\\\", $parts);' >> deploy_all/autoload.php
-        echo '        ' >> deploy_all/autoload.php
-        echo '        if (!empty($namespace)) {' >> deploy_all/autoload.php
-        echo '            $namespaces[$namespace] = true;' >> deploy_all/autoload.php
-        echo '        }' >> deploy_all/autoload.php
-        echo '    }' >> deploy_all/autoload.php
-        echo '    ' >> deploy_all/autoload.php
-        echo '    return array_keys($namespaces);' >> deploy_all/autoload.php
-        echo '}' >> deploy_all/autoload.php
         
-        # Controleer of de core map en controller bestand er zijn
-        echo "Controleren of core/controller.php bestaat:"
-        ls -la deploy_all/core/
+        # Speciale fix voor core/Controller.php bestanden
+        echo "# Controleren welke bestandsnaam Controller.php heeft in de core map"
+        find deploy_all/core -type f -iname "*Controller*.php" || echo "Geen Controller.php gevonden"
+        echo "# Controleren alle bestanden in core:"
+        ls -la deploy_all/core
+        
+        # Maak symlinks voor verschillende hoofdlettermogelijkheden
+        echo "# Symlinks maken voor verschillende hoofdlettervarianten"
+        if [ -f deploy_all/core/Controller.php ]; then
+          echo "Controller.php met hoofdletter gevonden"
+          # Maak een symlink voor lowercase variant
+          ln -sf deploy_all/core/Controller.php deploy_all/core/controller.php
+        elif [ -f deploy_all/core/controller.php ]; then
+          echo "controller.php met kleine letter gevonden"
+          # Maak een symlink voor uppercase variant
+          ln -sf deploy_all/core/controller.php deploy_all/core/Controller.php
+        else
+          echo "Geen controller.php gevonden, directory inhoud controleren:"
+          ls -la deploy_all/core/
+        fi
+        
+        # Maak een eenvoudige controller class als die niet gevonden kan worden
+        if [ ! -f deploy_all/core/Controller.php ] && [ ! -f deploy_all/core/controller.php ]; then
+          echo "Controller bestand niet gevonden, maak een tijdelijke versie"
+          echo '<?php' > deploy_all/core/Controller.php
+          echo 'namespace App\\Core;' >> deploy_all/core/Controller.php
+          echo '' >> deploy_all/core/Controller.php
+          echo '/**' >> deploy_all/core/Controller.php
+          echo ' * Basis Controller class waar andere controllers van kunnen erven' >> deploy_all/core/Controller.php
+          echo ' */' >> deploy_all/core/Controller.php
+          echo 'class Controller {' >> deploy_all/core/Controller.php
+          echo '    /**' >> deploy_all/core/Controller.php
+          echo '     * Controleer of gebruiker is ingelogd, zo niet, redirect naar login pagina' >> deploy_all/core/Controller.php
+          echo '     */' >> deploy_all/core/Controller.php
+          echo '    protected function requireLogin() {' >> deploy_all/core/Controller.php
+          echo '        if (!Auth::check()) {' >> deploy_all/core/Controller.php
+          echo '            header("Location: /login");' >> deploy_all/core/Controller.php
+          echo '            exit;' >> deploy_all/core/Controller.php
+          echo '        }' >> deploy_all/core/Controller.php
+          echo '        return Auth::id();' >> deploy_all/core/Controller.php
+          echo '    }' >> deploy_all/core/Controller.php
+          echo '}' >> deploy_all/core/Controller.php
+        fi
         
         # Maak eenvoudige test.php voor debug
         echo '<?php' > deploy_all/test.php
@@ -127,6 +173,8 @@ jobs:
         echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
         echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
         echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Controller.php map aanwezig: ' . (file_exists(__DIR__ . '/core/Controller.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'controller.php map aanwezig: ' . (file_exists(__DIR__ . '/core/controller.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
         echo "echo '</pre>';" >> deploy_all/info.php
         echo "phpinfo();" >> deploy_all/info.php
         
@@ -150,23 +198,50 @@ jobs:
         echo "" >> deploy_all/index_debug.php
         echo "// Test of de Controller class bestaat" >> deploy_all/index_debug.php
         echo "echo '<h2>Controller Class Test</h2>';" >> deploy_all/index_debug.php
-        echo "if (file_exists('core/controller.php')) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:green\">✓ core/controller.php bestand gevonden</div>';" >> deploy_all/index_debug.php
-        echo "    echo '<pre>Bestandsinhoud:<br>' . htmlspecialchars(file_get_contents('core/controller.php')) . '</pre>';" >> deploy_all/index_debug.php
-        echo "} else {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ core/controller.php bestand niet gevonden</div>';" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Controleer beide hoofdlettervarianten" >> deploy_all/index_debug.php
+        echo "echo '<div>Controller.php (hoofdletter): ' . (file_exists('core/Controller.php') ? '<span style=\"color:green\">Bestaat</span>' : '<span style=\"color:red\">Bestaat niet</span>') . '</div>';" >> deploy_all/index_debug.php
+        echo "echo '<div>controller.php (kleine letter): ' . (file_exists('core/controller.php') ? '<span style=\"color:green\">Bestaat</span>' : '<span style=\"color:red\">Bestaat niet</span>') . '</div>';" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Toon core directory inhoud" >> deploy_all/index_debug.php
+        echo "echo '<div>Core directory inhoud:</div>';" >> deploy_all/index_debug.php
+        echo "echo '<pre>';" >> deploy_all/index_debug.php
+        echo "echo implode(\"\\n\", array_map('htmlspecialchars', scandir('core')));" >> deploy_all/index_debug.php
+        echo "echo '</pre>';" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Controleer of we het bestand kunnen laden met de juiste naam" >> deploy_all/index_debug.php
+        echo "\$controllerFile = null;" >> deploy_all/index_debug.php
+        echo "if (file_exists('core/Controller.php')) {" >> deploy_all/index_debug.php
+        echo "    \$controllerFile = 'core/Controller.php';" >> deploy_all/index_debug.php
+        echo "} elseif (file_exists('core/controller.php')) {" >> deploy_all/index_debug.php
+        echo "    \$controllerFile = 'core/controller.php';" >> deploy_all/index_debug.php
         echo "}" >> deploy_all/index_debug.php
         echo "" >> deploy_all/index_debug.php
-        echo "try {" >> deploy_all/index_debug.php
-        echo "    // Probeer Controller class handmatig te laden" >> deploy_all/index_debug.php
-        echo "    if (!class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
-        echo "        require_once 'core/controller.php';" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:green\">✓ Controller class handmatig geladen</div>';" >> deploy_all/index_debug.php
-        echo "    } else {" >> deploy_all/index_debug.php
-        echo "        echo '<div style=\"color:green\">✓ Controller class al geladen door autoloader</div>';" >> deploy_all/index_debug.php
+        echo "if (\$controllerFile) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:green\">✓ Controller bestand gevonden: ' . \$controllerFile . '</div>';" >> deploy_all/index_debug.php
+        echo "    echo '<div>Inhoud:</div>';" >> deploy_all/index_debug.php
+        echo "    echo '<pre>' . htmlspecialchars(file_get_contents(\$controllerFile)) . '</pre>';" >> deploy_all/index_debug.php
+        echo "    " >> deploy_all/index_debug.php
+        echo "    try {" >> deploy_all/index_debug.php
+        echo "        require_once \$controllerFile;" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:green\">✓ ' . \$controllerFile . ' succesvol geladen</div>';" >> deploy_all/index_debug.php
+        echo "    } catch (Exception \$e) {" >> deploy_all/index_debug.php
+        echo "        echo '<div style=\"color:red\">✗ Error bij laden van ' . \$controllerFile . ': ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
         echo "    }" >> deploy_all/index_debug.php
-        echo "} catch (Exception \$e) {" >> deploy_all/index_debug.php
-        echo "    echo '<div style=\"color:red\">✗ Error bij laden van Controller class: ' . \$e->getMessage() . '</div>';" >> deploy_all/index_debug.php
+        echo "} else {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ Geen controller.php of Controller.php gevonden</div>';" >> deploy_all/index_debug.php
+        echo "}" >> deploy_all/index_debug.php
+        echo "" >> deploy_all/index_debug.php
+        echo "// Test of de App\\Core\\Controller class bestaat" >> deploy_all/index_debug.php
+        echo "echo '<h2>Core\\Controller class test</h2>';" >> deploy_all/index_debug.php
+        echo "if (class_exists('\\\\App\\\\Core\\\\Controller')) {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:green\">✓ App\\Core\\Controller class bestaat</div>';" >> deploy_all/index_debug.php
+        echo "    echo '<pre>';" >> deploy_all/index_debug.php
+        echo "    echo 'Class methods:\\n';" >> deploy_all/index_debug.php
+        echo "    print_r(get_class_methods('\\\\App\\\\Core\\\\Controller'));" >> deploy_all/index_debug.php
+        echo "    echo '</pre>';" >> deploy_all/index_debug.php
+        echo "} else {" >> deploy_all/index_debug.php
+        echo "    echo '<div style=\"color:red\">✗ App\\Core\\Controller class bestaat niet</div>';" >> deploy_all/index_debug.php
         echo "}" >> deploy_all/index_debug.php
         echo "" >> deploy_all/index_debug.php
         echo "// Test database connectie" >> deploy_all/index_debug.php
