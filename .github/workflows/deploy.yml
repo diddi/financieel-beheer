@@ -303,6 +303,128 @@ jobs:
         # Toon de uiteindelijke structuur
         echo "Inhoud van deploy_all/:"
         ls -la deploy_all/
+        
+        # Specifieke controle en fix voor Router.php en andere core files
+        echo "# Extra controle en fixes voor alle core bestanden"
+        cd deploy_all/core
+        for file in *.php; do
+          # Verkrijg de basename zonder extensie
+          basename=$(basename "$file" .php)
+          
+          # Maak lowercase variant
+          lowercase=$(echo "$basename" | tr '[:upper:]' '[:lower:]')
+          
+          # Maak uppercase voor eerste letter
+          firstChar=$(echo "$basename" | cut -c1 | tr '[:lower:]' '[:upper:]')
+          restChars=$(echo "$basename" | cut -c2-)
+          upperFirst="$firstChar$restChars"
+          
+          # Als de bestandsnaam niet allemaal lowercase of niet met hoofdletter begint is
+          if [ "$basename" != "$lowercase" ] && [ "$basename" != "$upperFirst" ]; then
+            echo "Normaliseren van bestandsnaam: $basename.php"
+            # Maak een kopie met gestandaardiseerde naam (eerste letter hoofdletter)
+            cp "$file" "$upperFirst.php"
+            # Maak een symlink voor lowercase variant
+            ln -sf "$upperFirst.php" "$lowercase.php"
+          fi
+          
+          # Als het bestaat met hoofdletter maar niet met kleine letter
+          if [ -f "$upperFirst.php" ] && [ ! -f "$lowercase.php" ]; then
+            echo "Symlink maken van $upperFirst.php naar $lowercase.php"
+            ln -sf "$upperFirst.php" "$lowercase.php"
+          fi
+          
+          # Als het bestaat met kleine letter maar niet met hoofdletter
+          if [ -f "$lowercase.php" ] && [ ! -f "$upperFirst.php" ]; then
+            echo "Symlink maken van $lowercase.php naar $upperFirst.php"
+            ln -sf "$lowercase.php" "$upperFirst.php"
+          fi
+        done
+        cd ../..
+        
+        # Speciale controle en fix voor Router.php
+        echo "# Specifieke check voor Router.php"
+        if [ -f deploy_all/core/Router.php ]; then
+          echo "Router.php gevonden, symlink naar router.php maken"
+          ln -sf deploy_all/core/Router.php deploy_all/core/router.php
+        elif [ -f deploy_all/core/router.php ]; then
+          echo "router.php gevonden, symlink naar Router.php maken"
+          ln -sf deploy_all/core/router.php deploy_all/core/Router.php
+        else
+          echo "Geen router.php of Router.php gevonden. Bekijk alle bestanden in core:"
+          ls -la deploy_all/core/
+          
+          # Maak een tijdelijke Router class
+          echo "Router bestand niet gevonden, maak een eenvoudige tijdelijke versie"
+          echo '<?php' > deploy_all/core/Router.php
+          echo 'namespace App\\Core;' >> deploy_all/core/Router.php
+          echo '' >> deploy_all/core/Router.php
+          echo '/**' >> deploy_all/core/Router.php
+          echo ' * Basis Router class' >> deploy_all/core/Router.php
+          echo ' */' >> deploy_all/core/Router.php
+          echo 'class Router {' >> deploy_all/core/Router.php
+          echo '    private $routes = [];' >> deploy_all/core/Router.php
+          echo '    ' >> deploy_all/core/Router.php
+          echo '    public function register($path, $handler, $method = "GET") {' >> deploy_all/core/Router.php
+          echo '        $this->routes[] = ["path" => $path, "handler" => $handler, "method" => $method];' >> deploy_all/core/Router.php
+          echo '    }' >> deploy_all/core/Router.php
+          echo '    ' >> deploy_all/core/Router.php
+          echo '    public function dispatch() {' >> deploy_all/core/Router.php
+          echo '        $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? "/";' >> deploy_all/core/Router.php
+          echo '        $method = $_SERVER["REQUEST_METHOD"];' >> deploy_all/core/Router.php
+          echo '        ' >> deploy_all/core/Router.php
+          echo '        foreach ($this->routes as $route) {' >> deploy_all/core/Router.php
+          echo '            if ($route["path"] === $path && $route["method"] === $method) {' >> deploy_all/core/Router.php
+          echo '                $controller = "\\\\App\\\\Controllers\\\\" . $route["handler"]["controller"];' >> deploy_all/core/Router.php
+          echo '                $action = $route["handler"]["action"];' >> deploy_all/core/Router.php
+          echo '                ' >> deploy_all/core/Router.php
+          echo '                if (class_exists($controller)) {' >> deploy_all/core/Router.php
+          echo '                    $controllerInstance = new $controller();' >> deploy_all/core/Router.php
+          echo '                    if (method_exists($controllerInstance, $action)) {' >> deploy_all/core/Router.php
+          echo '                        $controllerInstance->$action();' >> deploy_all/core/Router.php
+          echo '                        return;' >> deploy_all/core/Router.php
+          echo '                    }' >> deploy_all/core/Router.php
+          echo '                }' >> deploy_all/core/Router.php
+          echo '            }' >> deploy_all/core/Router.php
+          echo '        }' >> deploy_all/core/Router.php
+          echo '        ' >> deploy_all/core/Router.php
+          echo '        // Als we hier komen, is er geen route gevonden' >> deploy_all/core/Router.php
+          echo '        header("HTTP/1.0 404 Not Found");' >> deploy_all/core/Router.php
+          echo '        echo "<h1>404 - Pagina niet gevonden</h1>";' >> deploy_all/core/Router.php
+          echo '    }' >> deploy_all/core/Router.php
+          echo '}' >> deploy_all/core/Router.php
+          
+          # Maak symlink
+          ln -sf deploy_all/core/Router.php deploy_all/core/router.php
+        fi
+        
+        # Update database configuratie om het gebruikers probleem op te lossen
+        echo "# Database configuratie bijwerken"
+        echo '<?php' > deploy_all/config/database.php
+        echo '// Database configuratie' >> deploy_all/config/database.php
+        echo 'return [' >> deploy_all/config/database.php
+        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
+        echo "    'port' => 3306," >> deploy_all/config/database.php
+        echo "    'database' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
+        echo "    'username' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
+        echo "    'password' => 'voer_hier_je_wachtwoord_in', // WIJZIG DIT naar je juiste database wachtwoord" >> deploy_all/config/database.php
+        echo "    'charset' => 'utf8mb4'," >> deploy_all/config/database.php
+        echo "    'options' => [" >> deploy_all/config/database.php
+        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_all/config/database.php
+        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_all/config/database.php
+        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_all/config/database.php
+        echo "    ]" >> deploy_all/config/database.php
+        echo "];" >> deploy_all/config/database.php
+        
+        # Voeg instructies toe aan de database debug pagina
+        echo '' >> deploy_all/index_debug.php
+        echo "echo '<h2>Volgende stappen</h2>';" >> deploy_all/index_debug.php
+        echo "echo '<div style=\"background-color: #f8f9fa; padding: 15px; border-left: 5px solid #007bff;\">';" >> deploy_all/index_debug.php
+        echo "echo '<p><strong>Database error oplossen:</strong> Je moet het config/database.php bestand aanpassen met de juiste inloggegevens.</p>';" >> deploy_all/index_debug.php
+        echo "echo '<p>Zoek in je FTP omgeving naar het bestand <code>config/database.php</code> en wijzig de wachtwoordregel:</p>';" >> deploy_all/index_debug.php
+        echo "echo '<pre>\"password\" => \"voer_hier_je_wachtwoord_in\", // WIJZIG DIT</pre>';" >> deploy_all/index_debug.php
+        echo "echo '<p>Vervang <code>voer_hier_je_wachtwoord_in</code> door je juiste database wachtwoord dat je hebt ontvangen van je hosting provider.</p>';" >> deploy_all/index_debug.php
+        echo "echo '</div>';" >> deploy_all/index_debug.php
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
