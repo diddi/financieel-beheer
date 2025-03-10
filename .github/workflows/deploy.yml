@@ -151,6 +151,123 @@ jobs:
         find deploy_all -type f | sort
         
         echo "MVC structuur deployment bestanden voorbereid"
+        
+        # Voeg de AuthController toe
+        echo "Stap 10: AuthController toevoegen"
+        echo '<?php' > deploy_all/controllers/AuthController.php
+        echo 'namespace App\\Controllers;' >> deploy_all/controllers/AuthController.php
+        echo '' >> deploy_all/controllers/AuthController.php
+        echo 'use App\\Core\\Auth;' >> deploy_all/controllers/AuthController.php
+        echo 'use App\\Core\\Controller;' >> deploy_all/controllers/AuthController.php
+        echo 'use App\\Core\\Session;' >> deploy_all/controllers/AuthController.php
+        echo 'use App\\Models\\User;' >> deploy_all/controllers/AuthController.php
+        echo '' >> deploy_all/controllers/AuthController.php
+        echo 'class AuthController extends Controller {' >> deploy_all/controllers/AuthController.php
+        echo '    public function login() {' >> deploy_all/controllers/AuthController.php
+        echo '        if (Auth::check()) {' >> deploy_all/controllers/AuthController.php
+        echo '            header("Location: /");' >> deploy_all/controllers/AuthController.php
+        echo '            exit;' >> deploy_all/controllers/AuthController.php
+        echo '        }' >> deploy_all/controllers/AuthController.php
+        echo '        ' >> deploy_all/controllers/AuthController.php
+        echo '        $error = "";' >> deploy_all/controllers/AuthController.php
+        echo '        ' >> deploy_all/controllers/AuthController.php
+        echo '        if ($_SERVER["REQUEST_METHOD"] === "POST") {' >> deploy_all/controllers/AuthController.php
+        echo '            $email = $_POST["email"] ?? "";' >> deploy_all/controllers/AuthController.php
+        echo '            $password = $_POST["password"] ?? "";' >> deploy_all/controllers/AuthController.php
+        echo '            ' >> deploy_all/controllers/AuthController.php
+        echo '            if (empty($email) || empty($password)) {' >> deploy_all/controllers/AuthController.php
+        echo '                $error = "Vul je e-mailadres en wachtwoord in";' >> deploy_all/controllers/AuthController.php
+        echo '            } else {' >> deploy_all/controllers/AuthController.php
+        echo '                $success = Auth::login($email, $password);' >> deploy_all/controllers/AuthController.php
+        echo '                ' >> deploy_all/controllers/AuthController.php
+        echo '                if ($success) {' >> deploy_all/controllers/AuthController.php
+        echo '                    $redirectUrl = $_SESSION["redirect_url"] ?? "/";' >> deploy_all/controllers/AuthController.php
+        echo '                    unset($_SESSION["redirect_url"]);' >> deploy_all/controllers/AuthController.php
+        echo '                    header("Location: " . $redirectUrl);' >> deploy_all/controllers/AuthController.php
+        echo '                    exit;' >> deploy_all/controllers/AuthController.php
+        echo '                } else {' >> deploy_all/controllers/AuthController.php
+        echo '                    $error = "Ongeldige inloggegevens";' >> deploy_all/controllers/AuthController.php
+        echo '                }' >> deploy_all/controllers/AuthController.php
+        echo '            }' >> deploy_all/controllers/AuthController.php
+        echo '        }' >> deploy_all/controllers/AuthController.php
+        echo '        ' >> deploy_all/controllers/AuthController.php
+        echo '        $render = $this->startBuffering("Inloggen", true);' >> deploy_all/controllers/AuthController.php
+        echo '        ' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"sm:mx-auto sm:w-full sm:max-w-md\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<h2 class=\"mt-6 text-center text-3xl font-bold tracking-tight text-gray-900\">Inloggen</h2>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"mt-8 sm:mx-auto sm:w-full sm:max-w-md\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<form class=\"space-y-6\" action=\"/login\" method=\"POST\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<label for=\"email\" class=\"block text-sm font-medium text-gray-700\">E-mailadres</label>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"mt-1\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<input id=\"email\" name=\"email\" type=\"email\" autocomplete=\"email\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<label for=\"password\" class=\"block text-sm font-medium text-gray-700\">Wachtwoord</label>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"mt-1\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"flex items-center justify-between\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"flex items-center\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<input id=\"remember-me\" name=\"remember-me\" type=\"checkbox\" class=\"h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<label for=\"remember-me\" class=\"ml-2 block text-sm text-gray-900\">Onthoud mij</label>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"text-sm\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<a href=\"#\" class=\"font-medium text-indigo-600 hover:text-indigo-500\">Wachtwoord vergeten?</a>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<button type=\"submit\" class=\"w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500\">Inloggen</button>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</form>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"mt-6\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"relative\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"absolute inset-0 flex items-center\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"w-full border-t border-gray-300\"></div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"relative flex justify-center text-sm\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<span class=\"px-2 bg-white text-gray-500\">Of</span>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<div class=\"mt-6\">";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "<a href=\"/register\" class=\"w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-indigo-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500\">Maak een account aan</a>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
+        echo '        $render();' >> deploy_all/controllers/AuthController.php
+        echo '    }' >> deploy_all/controllers/AuthController.php
+        echo '}' >> deploy_all/controllers/AuthController.php
+        
+        # Voeg routes toe voor login, registratie en logout
+        echo "Stap 11: Routes instellen"
+        echo '<?php' > deploy_all/routes.php
+        echo "// Routes voor authenticatie" >> deploy_all/routes.php
+        echo "require_once 'controllers/AuthController.php';" >> deploy_all/routes.php
+        echo "" >> deploy_all/routes.php
+        echo "\$authController = new AuthController();" >> deploy_all/routes.php
+        echo "" >> deploy_all/routes.php
+        echo "if (\$_SERVER['REQUEST_URI'] === '/login') {" >> deploy_all/routes.php
+        echo "    \$authController->login();" >> deploy_all/routes.php
+        echo "} elseif (\$_SERVER['REQUEST_URI'] === '/register') {" >> deploy_all/routes.php
+        echo "    // Voeg registratie functionaliteit toe" >> deploy_all/routes.php
+        echo "} elseif (\$_SERVER['REQUEST_URI'] === '/logout') {" >> deploy_all/routes.php
+        echo "    // Voeg logout functionaliteit toe" >> deploy_all/routes.php
+        echo "} else {" >> deploy_all/routes.php
+        echo "    // Voeg andere routes toe" >> deploy_all/routes.php
+        echo "}" >> deploy_all/routes.php
+        
+        # Update index.php om routes te gebruiken
+        echo "Stap 12: Index bijwerken om routes te gebruiken"
+        echo '<?php' > deploy_all/index.php
+        echo "// Laad routes" >> deploy_all/index.php
+        echo "require_once 'routes.php';" >> deploy_all/index.php
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
