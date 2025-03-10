@@ -86,9 +86,14 @@ jobs:
         echo "Stap 7: Index.php maken"
         echo '<?php' > deploy_all/index.php
         echo 'require_once "autoload.php";' >> deploy_all/index.php
-        echo 'use App\\Core\\Router;' >> deploy_all/index.php
+        echo 'use App\\\\Core\\\\Router;' >> deploy_all/index.php
         echo '$router = new Router();' >> deploy_all/index.php
         echo '$router->dispatch();' >> deploy_all/index.php
+        
+        # Maak een phpinfo bestand voor diagnostiek
+        echo "Stap 7b: Info.php maken voor diagnostiek"
+        echo '<?php' > deploy_all/info.php
+        echo 'phpinfo();' >> deploy_all/info.php
         
         # Verifieer de uiteindelijke structuur
         echo "Stap 8: Finale structuur controleren"
