@@ -14,18 +14,36 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: FTP Deploy Adjusted
+    - name: Prepare files for deployment
+      run: |
+        # Script om de structuur aan te passen voor deployment
+        mkdir -p deploy_tmp
+        
+        # Kopieer alle bestanden behalve public/ naar de deploy_tmp map
+        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_tmp/
+        
+        # Kopieer inhoud van public/ naar de root van deploy_tmp
+        cp -r public/* deploy_tmp/
+        
+        # Toon de uiteindelijke structuur
+        ls -la deploy_tmp/
+    
+    - name: FTP Deploy Full Structure
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /
-        local-dir: ./public/
+        local-dir: ./deploy_tmp/
         exclude: |
           **/.git*
           **/.git*/**
           **/node_modules/**
+          config/database.php
+          .env
+          README.md
+          .DS_Store
 
 # Hoe te gebruiken:
 # 1. Ga naar je GitHub repository
@@ -34,4 +52,4 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
-# 4. Nu zal ALLEEN de inhoud van de public map worden gedeployed naar je hosting! 
+# 4. Deze workflow uploadt je volledige applicatie met de juiste structuur! 
