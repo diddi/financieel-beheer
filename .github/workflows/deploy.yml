@@ -16,81 +16,82 @@ jobs:
     
     - name: Prepare files for deployment
       run: |
-        # Script om de structuur aan te passen voor deployment volgens de verwachte structuur
+        # Eenvoudige approach: alles in één map
+        mkdir -p deploy_all
         
-        # We maken twee deploy mappen: één voor public en één voor de rest
-        mkdir -p deploy_public
-        mkdir -p deploy_private
+        # Kopieer alle bestanden (ook de niet-publieke bestanden) naar de root
+        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_all/
         
-        # Kopieer public bestanden naar deploy_public (deze gaan naar public_html)
-        cp -r public/* deploy_public/
-        
-        # Kopieer de rest van de bestanden naar deploy_private (deze gaan één niveau omhoog)
-        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_private/
+        # Kopieer public bestanden ook naar de root
+        cp -r public/* deploy_all/
         
         # Maak database.php bestand
-        mkdir -p deploy_private/config
-        echo '<?php' > deploy_private/config/database.php
-        echo '// Database configuratie' >> deploy_private/config/database.php
-        echo 'return [' >> deploy_private/config/database.php
-        echo "    'host' => 'localhost'," >> deploy_private/config/database.php
-        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_private/config/database.php
-        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_private/config/database.php
-        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_private/config/database.php
-        echo "    'port' => 3306," >> deploy_private/config/database.php
-        echo "    'charset' => 'utf8mb4'," >> deploy_private/config/database.php
-        echo "    'options' => [" >> deploy_private/config/database.php
-        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_private/config/database.php
-        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_private/config/database.php
-        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_private/config/database.php
-        echo "    ]" >> deploy_private/config/database.php
-        echo "];" >> deploy_private/config/database.php
+        mkdir -p deploy_all/config
+        echo '<?php' > deploy_all/config/database.php
+        echo '// Database configuratie' >> deploy_all/config/database.php
+        echo 'return [' >> deploy_all/config/database.php
+        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
+        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_all/config/database.php
+        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_all/config/database.php
+        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_all/config/database.php
+        echo "    'port' => 3306," >> deploy_all/config/database.php
+        echo "    'charset' => 'utf8mb4'," >> deploy_all/config/database.php
+        echo "    'options' => [" >> deploy_all/config/database.php
+        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_all/config/database.php
+        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_all/config/database.php
+        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_all/config/database.php
+        echo "    ]" >> deploy_all/config/database.php
+        echo "];" >> deploy_all/config/database.php
         
-        # Maak info.php bestand voor debugging in public_html
-        echo '<?php' > deploy_public/info.php
-        echo '// Debug informatie' >> deploy_public/info.php
-        echo "echo '<h1>PHP Info</h1>';" >> deploy_public/info.php
-        echo "echo '<h2>PHP Versie</h2>';" >> deploy_public/info.php
-        echo "echo phpversion();" >> deploy_public/info.php
-        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_public/info.php
-        echo "echo '<pre>';" >> deploy_public/info.php
-        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/../autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/../core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/../controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/../models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/../views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/../config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/../config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_public/info.php
-        echo "echo '</pre>';" >> deploy_public/info.php
-        echo "phpinfo();" >> deploy_public/info.php
+        # Maak eenvoudige test.php voor debug
+        echo '<?php' > deploy_all/test.php
+        echo "echo '<h1>Basis PHP Test</h1>';" >> deploy_all/test.php
+        echo "echo 'Huidige map: ' . __DIR__;" >> deploy_all/test.php
+        echo "echo '<br>PHP Versie: ' . phpversion();" >> deploy_all/test.php
+        
+        # Maak info.php bestand voor debugging 
+        echo '<?php' > deploy_all/info.php
+        echo '// Debug informatie' >> deploy_all/info.php
+        echo "echo '<h1>PHP Info</h1>';" >> deploy_all/info.php
+        echo "echo '<h2>PHP Versie</h2>';" >> deploy_all/info.php
+        echo "echo phpversion();" >> deploy_all/info.php
+        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_all/info.php
+        echo "echo '<pre>';" >> deploy_all/info.php
+        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_all/info.php
+        echo "echo '</pre>';" >> deploy_all/info.php
+        echo "phpinfo();" >> deploy_all/info.php
+        
+        # Maak nieuwe, zeer eenvoudige .htaccess
+        echo 'RewriteEngine On' > deploy_all/.htaccess
+        echo 'RewriteBase /' >> deploy_all/.htaccess
+        echo '' >> deploy_all/.htaccess
+        echo '# Alleen redirect naar index.php als bestand of directory niet bestaat' >> deploy_all/.htaccess
+        echo 'RewriteCond %{REQUEST_FILENAME} !-f' >> deploy_all/.htaccess
+        echo 'RewriteCond %{REQUEST_FILENAME} !-d' >> deploy_all/.htaccess
+        echo 'RewriteRule ^(.*)$ index.php [QSA,L]' >> deploy_all/.htaccess
+        echo '' >> deploy_all/.htaccess
+        echo '# Schakel PHP error reporting in voor debugging' >> deploy_all/.htaccess
+        echo 'php_flag display_errors on' >> deploy_all/.htaccess
+        echo 'php_value error_reporting E_ALL' >> deploy_all/.htaccess
         
         # Toon de uiteindelijke structuur
-        echo "Inhoud van deploy_private/:"
-        ls -la deploy_private/
-        echo "Inhoud van deploy_public/:"
-        ls -la deploy_public/
+        echo "Inhoud van deploy_all/:"
+        ls -la deploy_all/
     
-    - name: FTP Deploy Public Files
+    - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /
-        local-dir: ./deploy_public/
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-    
-    - name: FTP Deploy Private Files
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /../
-        local-dir: ./deploy_private/
+        local-dir: ./deploy_all/
         exclude: |
           **/.git*
           **/.git*/**
@@ -106,4 +107,4 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
-# 4. Deze workflow uploadt je applicatie met de juiste mapstructuur!
+# 4. Deze workflow uploadt alles naar de public_html map om te testen!
