@@ -21,7 +21,7 @@ class Transaction {
     public static function getAllByUser($userId, $filters = []) {
         $db = Database::getInstance();
         
-        $sql = "SELECT t.*, c.name as category_name, c.color, a.name as account_name 
+        $sql = "SELECT t.*, c.name as category_name, c.type as category_type, c.color, a.name as account_name 
                 FROM " . self::$table . " t 
                 LEFT JOIN categories c ON t.category_id = c.id 
                 LEFT JOIN accounts a ON t.account_id = a.id 
@@ -45,12 +45,12 @@ class Transaction {
         }
         
         if (!empty($filters['date_from'])) {
-            $sql .= " AND t.date >= ?";
+            $sql .= " AND DATE(t.date) >= ?";
             $params[] = $filters['date_from'];
         }
         
         if (!empty($filters['date_to'])) {
-            $sql .= " AND t.date <= ?";
+            $sql .= " AND DATE(t.date) <= ?";
             $params[] = $filters['date_to'];
         }
         

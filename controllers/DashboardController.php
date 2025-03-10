@@ -2,391 +2,356 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\Budget;
 use App\Models\RecurringTransaction;
 
-class DashboardController {
+class DashboardController extends Controller {
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
+        $userId = $this->requireLogin();
         
-        $userId = Auth::id();
-        $user = Auth::user();
-        
-        // Haal accounts op
+        // Haal accountgegevens op
         $accounts = Account::getAllByUser($userId);
         
         // Haal recente transacties op
         $recentTransactions = Transaction::getAllByUser($userId, [
-            'limit' => 5
+            'limit' => 5,
+            'order_by' => 'date DESC'
         ]);
         
-        // Bereken maandtotalen
-        $currentMonth = date('Y-m-01');
-        $nextMonth = date('Y-m-01', strtotime('+1 month'));
+        // Bereken maandelijkse inkomsten/uitgaven
+        $firstDayOfMonth = date('Y-m-01');
+        $lastDayOfMonth = date('Y-m-t');
+        
+        $monthTransactions = Transaction::getAllByUser($userId, [
+            'date_from' => $firstDayOfMonth,
+            'date_to' => $lastDayOfMonth
+        ]);
         
         $monthIncome = 0;
         $monthExpenses = 0;
         
-        // Haal transacties van de huidige maand op
-        $monthTransactions = Transaction::getAllByUser($userId, [
-            'date_from' => $currentMonth,
-            'date_to' => date('Y-m-t') // laatste dag van de maand
-        ]);
-        
-        // Bereken totalen
         foreach ($monthTransactions as $transaction) {
             if ($transaction['type'] === 'income') {
                 $monthIncome += $transaction['amount'];
-            } elseif ($transaction['type'] === 'expense') {
+            } else {
                 $monthExpenses += $transaction['amount'];
             }
         }
         
-        // Totaal saldo van alle rekeningen
-        $totalBalance = array_reduce($accounts, function($total, $account) {
-            return $total + $account['balance'];
-        }, 0);
-        
-        // Haal budgetstatus op voor weergave op dashboard
-        $budgets = Budget::getBudgetStatus($userId);
-        
-        // Bereid gegevens voor de grafiek voor
-        $chartData = $this->prepareChartData($userId);
+        // Haal budgetstatus op
+        $budgetStatus = Budget::getBudgetStatus($userId);
         
         // Haal aankomende terugkerende transacties op
-        if (class_exists('App\\Models\\RecurringTransaction') && method_exists('App\\Models\\RecurringTransaction', 'getAllByUser')) {
-            try {
-                $upcomingRecurring = RecurringTransaction::getAllByUser($userId, true);
-                $upcomingRecurring = array_filter($upcomingRecurring, function($transaction) {
-                    return strtotime($transaction['next_due_date']) <= strtotime('+7 days'); // Komende 7 dagen
-                });
-                // Beperk tot de eerste 5
-                $upcomingRecurring = array_slice($upcomingRecurring, 0, 5);
-            } catch (\Exception $e) {
-                // Als er een fout optreedt, maak een lege array
-                $upcomingRecurring = [];
-            }
-        } else {
-            // Als de functionaliteit nog niet beschikbaar is, maak een lege array
-            $upcomingRecurring = [];
-        }
+        $upcomingRecurring = RecurringTransaction::getUpcoming($userId, [
+            'limit' => 5
+        ]);
         
-        // Maak dashboard
-        echo "
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Financieel Beheer - Dashboard</title>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <script src='https://cdn.tailwindcss.com'></script>
-            <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
-        </head>
-        <body class='bg-gray-100 min-h-screen'>";
-    
-    // Sluit de echo, voeg het navigatiecomponent toe
-    include_once __DIR__ . '/../views/components/navigation.php';
-    
-    // Hervat de echo voor de rest van de HTML
-    echo " <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-                <div class='md:flex md:items-center md:justify-between mb-6'>
-                    <h1 class='text-2xl font-bold'>Dashboard</h1>
-                    <div class='mt-4 md:mt-0'>
-                        <a href='/transactions/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
-                            Nieuwe transactie
-                        </a>
-                    </div>
-                </div>
-                
-                <div class='bg-white rounded-lg shadow-md p-6 mb-8'>
-                    <h2 class='text-xl font-bold mb-4'>Totaal saldo</h2>
-                    <div class='text-3xl font-bold " . ($totalBalance >= 0 ? 'text-green-600' : 'text-red-600') . "'>
-                        €" . number_format($totalBalance, 2, ',', '.') . "
-                    </div>
-                </div>
-                
-                <div class='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>";
-        
-        // Toon rekeningen
+        // Bereken totaal saldo
+        $totalBalance = 0;
         foreach ($accounts as $account) {
-            $colorClass = $account['balance'] >= 0 ? 'border-green-500' : 'border-red-500';
-            $textClass = $account['balance'] >= 0 ? 'text-green-600' : 'text-red-600';
-            
-            echo "
-                <div class='bg-white rounded-lg shadow p-6 border-l-4 {$colorClass}'>
-                    <h3 class='font-semibold text-lg'>" . htmlspecialchars($account['name']) . "</h3>
-                    <div class='text-sm text-gray-500'>" . htmlspecialchars($account['type_name']) . "</div>
-                    <div class='mt-2'>
-                        <span class='text-2xl font-bold {$textClass}'>
-                            €" . number_format($account['balance'], 2, ',', '.') . "
-                        </span>
-                    </div>
-                </div>";
+            $totalBalance += $account['balance'];
         }
         
-        echo "  </div>
-                
-                <div class='bg-white rounded-lg shadow p-6 mb-8'>
-                    <h2 class='text-xl font-bold mb-4'>Maandoverzicht</h2>
-                    <div class='flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 mb-4'>
-                        <div>
-                            <span class='font-semibold text-gray-600'>Inkomsten</span>
-                            <div class='text-xl font-bold text-green-600'>€" . number_format($monthIncome, 2, ',', '.') . "</div>
-                        </div>
-                        <div>
-                            <span class='font-semibold text-gray-600'>Uitgaven</span>
-                            <div class='text-xl font-bold text-red-600'>€" . number_format($monthExpenses, 2, ',', '.') . "</div>
-                        </div>
-                        <div>
-                            <span class='font-semibold text-gray-600'>Balans</span>
-                            <div class='text-xl font-bold " . ($monthIncome - $monthExpenses >= 0 ? 'text-green-600' : 'text-red-600') . "'>
-                                €" . number_format($monthIncome - $monthExpenses, 2, ',', '.') . "
-                            </div>
+        // Bereid grafiekdata voor
+        $chartData = $this->prepareChartData($userId);
+        
+        // Start buffering voor de pagina
+        $render = $this->startBuffering('Dashboard');
+        
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'>";
+        
+        // Welkomstbericht met datum
+        echo "
+            <div class='mb-6'>
+                <h1 class='text-2xl font-bold text-gray-900'>Welkom bij Financieel Beheer</h1>
+                <p class='text-gray-500'>" . date('l j F Y') . "</p>
+            </div>";
+        
+        // Samenvatting cards
+        echo "
+            <div class='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
+                <!-- Totaal saldo -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='flex flex-col'>
+                        <div class='text-sm font-medium text-gray-500 mb-1'>Totaal saldo</div>
+                        <div class='text-2xl font-bold'>€" . number_format($totalBalance, 2, ',', '.') . "</div>
+                        <div class='flex items-center mt-2'>
+                            <span class='text-xs text-gray-500'>Verdeeld over " . count($accounts) . " rekeningen</span>
                         </div>
                     </div>
-                    <div class='w-full h-64'>
-                        <canvas id='monthlyChart'></canvas>
+                </div>
+                
+                <!-- Inkomsten deze maand -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='flex flex-col'>
+                        <div class='text-sm font-medium text-gray-500 mb-1'>Inkomsten deze maand</div>
+                        <div class='text-2xl font-bold text-green-600'>€" . number_format($monthIncome, 2, ',', '.') . "</div>
+                        <div class='flex items-center mt-2'>
+                            <span class='text-xs text-gray-500'>" . date('F Y') . "</span>
+                        </div>
                     </div>
-                </div>";
+                </div>
                 
-        // Toon aankomende terugkerende transacties als die er zijn
-        if (!empty($upcomingRecurring)) {
-            echo "<div class='bg-white rounded-lg shadow p-6 mb-8'>
-                    <div class='flex justify-between items-center mb-4'>
-                        <h2 class='text-xl font-bold'>Aankomende terugkerende transacties</h2>
-                        <a href='/recurring' class='text-blue-600 hover:underline text-sm'>Alle bekijken →</a>
+                <!-- Uitgaven deze maand -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='flex flex-col'>
+                        <div class='text-sm font-medium text-gray-500 mb-1'>Uitgaven deze maand</div>
+                        <div class='text-2xl font-bold text-red-600'>€" . number_format($monthExpenses, 2, ',', '.') . "</div>
+                        <div class='flex items-center mt-2'>
+                            <span class='text-xs text-gray-500'>" . date('F Y') . "</span>
+                        </div>
                     </div>
-                    
-                    <div class='divide-y'>";
-            foreach ($upcomingRecurring as $transaction) {
-                echo "<div class='py-3 flex justify-between items-center'>
-                        <div class='flex items-center'>
-                            <div class='w-2 h-8 rounded-full mr-3' style='background-color: " . htmlspecialchars($transaction['color'] ?? '#9E9E9E') . "'></div>
-                            <div>
-                                <div class='font-medium'>" . htmlspecialchars($transaction['description']) . "</div>
-                                <div class='text-sm text-gray-500'>
-                                    " . htmlspecialchars($transaction['account_name']) . " • 
-                                    " . date('d-m-Y', strtotime($transaction['next_due_date'])) . "
-                                    ";
-                    $today = date('Y-m-d');
-                    $daysUntil = (strtotime($transaction['next_due_date']) - strtotime($today)) / (60 * 60 * 24);
-                    if ($daysUntil <= 0) {
-                        echo '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs">Vandaag</span>';
-                    } elseif ($daysUntil <= 3) {
-                        echo '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">Binnen ' . ceil($daysUntil) . ' dagen</span>';
-                    }
-                echo "                </div>
-                            </div>
-                        </div>
-                        <div class='font-bold " . ($transaction['type'] === 'expense' ? 'text-red-600' : 'text-green-600') . "'>
-                            " . ($transaction['type'] === 'expense' ? '-' : '+') . "€" . number_format($transaction['amount'], 2, ',', '.') . "
-                        </div>
-                    </div>";
-            }
-            echo "    </div>
-                </div>";
-        }
+                </div>
+            </div>";
+        
+        // Grafiek en recente transacties
+        echo "
+            <div class='grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8'>
+                <!-- Grafiek -->
+                <div class='lg:col-span-2 bg-white rounded-lg shadow-md p-6'>
+                    <h2 class='text-lg font-semibold mb-4'>Uitgaven per categorie</h2>
+                    <div style='height: 250px; position: relative;'>
+                        <canvas id='expenses-chart'></canvas>
+                    </div>
+                </div>
                 
-        // Toon budget voortgang
-        if (!empty($budgets)) {
-            echo "<div class='bg-white rounded-lg shadow p-6 mb-8'>
+                <!-- Recente transacties -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
                     <div class='flex justify-between items-center mb-4'>
-                        <h2 class='text-xl font-bold'>Budget voortgang</h2>
-                        <a href='/budgets' class='text-blue-600 hover:underline text-sm'>Alle budgetten →</a>
+                        <h2 class='text-lg font-semibold'>Recente transacties</h2>
+                        <a href='/transactions' class='text-blue-600 hover:text-blue-800 text-sm'>Alle transacties</a>
                     </div>";
-            
-            foreach ($budgets as $budget) {
-                $progressColor = 'bg-green-500';
-                
-                if ($budget['is_exceeded']) {
-                    $progressColor = 'bg-red-500';
-                } elseif ($budget['is_warning']) {
-                    $progressColor = 'bg-yellow-500';
-                }
-                
-                echo "<div class='mb-4'>
-                        <div class='flex justify-between items-center mb-1'>
-                            <span class='font-medium'>" . htmlspecialchars($budget['category_name']) . "</span>
-                            <span class='text-sm'>
-                                €" . number_format($budget['spent'], 2, ',', '.') . " / 
-                                €" . number_format($budget['amount'], 2, ',', '.') . "
-                            </span>
-                        </div>
-                        <div class='w-full bg-gray-200 rounded-full h-2.5'>
-                            <div class='h-2.5 rounded-full {$progressColor}' style='width: " . min(100, $budget['percentage']) . "%'></div>
-                        </div>
-                    </div>";
-            }
-            
-            echo "</div>";
-        }
-                
-        echo "<div class='bg-white rounded-lg shadow p-6'>
-                    <div class='flex justify-between items-center mb-4'>
-                        <h2 class='text-xl font-bold'>Recente transacties</h2>
-                        <a href='/transactions' class='text-blue-600 hover:underline text-sm'>Alle bekijken →</a>
-                    </div>";
-                    
+        
         if (empty($recentTransactions)) {
             echo "<p class='text-gray-500 text-center py-4'>Geen recente transacties</p>";
         } else {
-            echo "<div class='divide-y'>";
+            echo "<div class='space-y-3'>";
             
             foreach ($recentTransactions as $transaction) {
-                $type = $transaction['type'];
-                $amountClass = $type === 'expense' ? 'text-red-600' : 'text-green-600';
-                $amountPrefix = $type === 'expense' ? '-' : '+';
+                $typeClass = $transaction['type'] === 'income' ? 'text-green-600' : 'text-red-600';
+                $amountPrefix = $transaction['type'] === 'income' ? '+' : '-';
+                $amount = number_format(abs($transaction['amount']), 2, ',', '.');
                 
                 echo "
-                <div class='py-3 flex justify-between items-center'>
-                    <div class='flex items-center'>
-                        <div class='w-2 h-8 rounded-full mr-3' style='background-color: " . htmlspecialchars($transaction['color'] ?? '#9E9E9E') . "'></div>
-                        <div>
-                            <div class='font-medium'>" . htmlspecialchars($transaction['description'] ?: ($transaction['category_name'] ?? 'Onbekende categorie')) . "</div>
-                            <div class='text-sm text-gray-500'>" . htmlspecialchars($transaction['account_name']) . " • " . date('d-m-Y', strtotime($transaction['date'])) . "</div>
+                    <div class='flex items-center justify-between p-2 hover:bg-gray-50 rounded'>
+                        <div class='flex items-center'>
+                            <div class='flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center' style='background-color: " . ($transaction['color'] ?? '#e5e7eb') . "20'>
+                                <i class='material-icons text-sm' style='color: " . ($transaction['color'] ?? '#374151') . "'>" . ($transaction['category_icon'] ?? ($transaction['type'] === 'income' ? 'trending_up' : 'trending_down')) . "</i>
+                            </div>
+                            <div class='ml-3'>
+                                <p class='text-sm font-medium text-gray-900'>" . htmlspecialchars($transaction['description']) . "</p>
+                                <p class='text-xs text-gray-500'>" . date('d-m-Y', strtotime($transaction['date'])) . " • " . ($transaction['category_name'] ?? 'Geen categorie') . "</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class='font-bold {$amountClass}'>
-                        {$amountPrefix}€" . number_format($transaction['amount'], 2, ',', '.') . "
-                    </div>
-                </div>";
+                        <span class='text-sm font-medium {$typeClass}'>{$amountPrefix}€{$amount}</span>
+                    </div>";
             }
             
             echo "</div>";
         }
-                    
-        echo "  </div>
-            </div>
+        
+        echo "
+                </div>
+            </div>";
+        
+        // Budget en aankomende transacties
+        echo "
+            <div class='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                <!-- Budget overzicht -->
+                <div class='lg:col-span-2 bg-white rounded-lg shadow-md p-6'>
+                    <div class='flex justify-between items-center mb-4'>
+                        <h2 class='text-lg font-semibold'>Budget overzicht</h2>
+                        <a href='/budgets' class='text-blue-600 hover:text-blue-800 text-sm'>Alle budgetten</a>
+                    </div>";
+        
+        if (empty($budgetStatus)) {
+            echo "<p class='text-gray-500 text-center py-4'>Geen actieve budgetten</p>";
+        } else {
+            echo "<div class='space-y-4'>";
             
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    // Chart data
-                    const chartData = " . json_encode($chartData) . ";
-                    
-                    // Monthly Chart
-                    const ctx = document.getElementById('monthlyChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: chartData.labels,
-                            datasets: [
-                                {
-                                    label: 'Inkomsten',
-                                    data: chartData.income,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                                    borderColor: 'rgb(34, 197, 94)',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Uitgaven',
-                                    data: chartData.expenses,
-                                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
-                                    borderColor: 'rgb(239, 68, 68)',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return '€' + value.toLocaleString('nl-NL');
-                                        }
-                                    }
-                                }
-                            },
-                            plugins: {
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            let label = context.dataset.label || '';
-                                            if (label) {
-                                                label += ': ';
-                                            }
-                                            label += '€' + context.raw.toLocaleString('nl-NL', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            });
-                                            return label;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-            </script>
-        </body>
-        </html>
-        ";
-    }
-    
-    /**
-     * Bereid gegevens voor de maandelijkse grafiek voor
-     */
-    private function prepareChartData($userId) {
-        // Haal transacties op voor de laatste 6 maanden
-        $startDate = date('Y-m-01', strtotime('-5 months'));
-        $endDate = date('Y-m-t'); // laatste dag van de huidige maand
-        
-        $transactions = Transaction::getAllByUser($userId, [
-            'date_from' => $startDate,
-            'date_to' => $endDate
-        ]);
-        
-        // Maak arrays voor elke maand
-        $months = [];
-        $current = new \DateTime($startDate);
-        $last = new \DateTime($endDate);
-        
-        while ($current <= $last) {
-            $yearMonth = $current->format('Y-m');
-            $months[$yearMonth] = [
-                'label' => $current->format('M Y'),
-                'income' => 0,
-                'expenses' => 0
-            ];
+            foreach ($budgetStatus as $budget) {
+                $percentage = ($budget['amount'] > 0) ? min(100, ($budget['spent'] / $budget['amount']) * 100) : 0;
+                $barColor = $percentage > 90 ? 'bg-red-500' : ($percentage > 75 ? 'bg-yellow-500' : 'bg-green-500');
+                
+                echo "
+                    <div>
+                        <div class='flex justify-between items-center mb-1'>
+                            <div class='flex items-center'>
+                                <div class='flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center' style='background-color: " . ($budget['color'] ?? '#e5e7eb') . "20'>
+                                    <i class='material-icons text-xs' style='color: " . ($budget['color'] ?? '#374151') . "'>" . ($budget['icon'] ?? 'attach_money') . "</i>
+                                </div>
+                                <span class='ml-2 text-sm font-medium text-gray-900'>" . htmlspecialchars($budget['category_name'] ?? 'Budget') . "</span>
+                            </div>
+                            <div class='text-sm text-gray-900'>
+                                €" . number_format($budget['spent'], 2, ',', '.') . " / €" . number_format($budget['amount'], 2, ',', '.') . "
+                            </div>
+                        </div>
+                        <div class='w-full h-2 bg-gray-200 rounded'>
+                            <div class='{$barColor} h-2 rounded' style='width: {$percentage}%'></div>
+                        </div>
+                    </div>";
+            }
             
-            $current->modify('+1 month');
+            echo "</div>";
         }
         
-        // Vul de data in
-        foreach ($transactions as $transaction) {
-            $yearMonth = substr($transaction['date'], 0, 7); // Format: YYYY-MM
+        echo "
+                </div>
+                
+                <!-- Aankomende terugkerende transacties -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='flex justify-between items-center mb-4'>
+                        <h2 class='text-lg font-semibold'>Aankomende transacties</h2>
+                        <a href='/recurring-transactions' class='text-blue-600 hover:text-blue-800 text-sm'>Alle terugkerende</a>
+                    </div>";
+        
+        if (empty($upcomingRecurring)) {
+            echo "<p class='text-gray-500 text-center py-4'>Geen aankomende transacties</p>";
+        } else {
+            echo "<div class='space-y-3'>";
             
-            if (isset($months[$yearMonth])) {
-                if ($transaction['type'] === 'income') {
-                    $months[$yearMonth]['income'] += $transaction['amount'];
-                } elseif ($transaction['type'] === 'expense') {
-                    $months[$yearMonth]['expenses'] += $transaction['amount'];
+            foreach ($upcomingRecurring as $recurring) {
+                $typeClass = $recurring['type'] === 'income' ? 'text-green-600' : 'text-red-600';
+                $amountPrefix = $recurring['type'] === 'income' ? '+' : '-';
+                $amount = number_format(abs($recurring['amount']), 2, ',', '.');
+                $daysUntil = $recurring['days_until_due'];
+                $daysLabel = $daysUntil === 0 ? 'Vandaag' : ($daysUntil === 1 ? 'Morgen' : "Over {$daysUntil} dagen");
+                
+                echo "
+                    <div class='flex items-center justify-between p-2 hover:bg-gray-50 rounded'>
+                        <div class='flex items-center'>
+                            <div class='flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center' style='background-color: " . ($recurring['color'] ?? '#e5e7eb') . "20'>
+                                <i class='material-icons text-sm' style='color: " . ($recurring['color'] ?? '#374151') . "'>repeat</i>
+                            </div>
+                            <div class='ml-3'>
+                                <p class='text-sm font-medium text-gray-900'>" . htmlspecialchars($recurring['description']) . "</p>
+                                <p class='text-xs text-gray-500'>" . date('d-m-Y', strtotime($recurring['next_due_date'])) . " • {$daysLabel}</p>
+                            </div>
+                        </div>
+                        <span class='text-sm font-medium {$typeClass}'>{$amountPrefix}€{$amount}</span>
+                    </div>";
+            }
+            
+            echo "</div>";
+        }
+        
+        echo "
+                </div>
+            </div>";
+        
+        // Einde content div
+        echo "</div>";
+        
+        // JavaScript voor de grafieken
+        echo "
+        <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Expenses chart
+            const ctx = document.getElementById('expenses-chart').getContext('2d');
+            
+            const expensesChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: " . json_encode(array_column($chartData, 'label')) . ",
+                    datasets: [{
+                        data: " . json_encode(array_column($chartData, 'value')) . ",
+                        backgroundColor: " . json_encode(array_column($chartData, 'color')) . ",
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
                 }
+            });
+        });
+        </script>";
+        
+        // Render de pagina met de layout
+        $render();
+    }
+    
+    private function prepareChartData($userId) {
+        // Haal uitgaven per categorie op voor de huidige maand
+        $firstDayOfMonth = date('Y-m-01');
+        $lastDayOfMonth = date('Y-m-t');
+        
+        $transactions = Transaction::getAllByUser($userId, [
+            'date_from' => $firstDayOfMonth,
+            'date_to' => $lastDayOfMonth,
+            'type' => 'expense'
+        ]);
+        
+        // Groepeer uitgaven per categorie
+        $categories = [];
+        $noCategory = ['id' => 0, 'name' => 'Geen categorie', 'color' => '#A9A9A9'];
+        
+        foreach ($transactions as $transaction) {
+            $categoryId = $transaction['category_id'] ?? 0;
+            $categoryName = $transaction['category_name'] ?? $noCategory['name'];
+            $categoryColor = $transaction['color'] ?? $noCategory['color'];
+            
+            if (!isset($categories[$categoryId])) {
+                $categories[$categoryId] = [
+                    'id' => $categoryId,
+                    'name' => $categoryName,
+                    'color' => $categoryColor,
+                    'total' => 0
+                ];
+            }
+            
+            $categories[$categoryId]['total'] += $transaction['amount'];
+        }
+        
+        // Sorteer op totaalbedrag (hoogste eerst)
+        usort($categories, function($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+        
+        // Beperk tot top 5 categorieën en voeg "overig" toe indien nodig
+        $chartData = [];
+        $otherTotal = 0;
+        
+        foreach ($categories as $index => $category) {
+            if ($index < 5) {
+                $chartData[] = [
+                    'label' => $category['name'],
+                    'value' => $category['total'],
+                    'color' => $category['color']
+                ];
+            } else {
+                $otherTotal += $category['total'];
             }
         }
         
-        // Maak arrays voor Chart.js
-        $labels = [];
-        $income = [];
-        $expenses = [];
-        
-        foreach ($months as $yearMonth => $data) {
-            $labels[] = $data['label'];
-            $income[] = $data['income'];
-            $expenses[] = $data['expenses'];
+        // Voeg "Overig" toe als er meer dan 5 categorieën zijn
+        if ($otherTotal > 0) {
+            $chartData[] = [
+                'label' => 'Overig',
+                'value' => $otherTotal,
+                'color' => '#9CA3AF'
+            ];
         }
         
-        return [
-            'labels' => $labels,
-            'income' => $income,
-            'expenses' => $expenses
-        ];
+        // Als er geen data is, toon een placeholder
+        if (empty($chartData)) {
+            $chartData[] = [
+                'label' => 'Geen uitgaven',
+                'value' => 1,
+                'color' => '#E5E7EB'
+            ];
+        }
+        
+        return $chartData;
     }
 }

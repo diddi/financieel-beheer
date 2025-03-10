@@ -2,30 +2,116 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountType;
 
-class AccountController {
+class AccountController extends Controller {
     
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
-        
-        $userId = Auth::id();
+        $userId = $this->requireLogin();
         
         // Haal rekeningen op
         $accounts = Account::getAllByUser($userId);
         
-        // Bereken totaal saldo
-        $totalBalance = array_reduce($accounts, function($total, $account) {
-            return $total + $account['balance'];
-        }, 0);
+        // Bereken totalen
+        $totalBalance = 0;
+        foreach ($accounts as $account) {
+            $totalBalance += $account['balance'];
+        }
         
-        // Geef de view weer
-        $this->renderAccountsList($accounts, $totalBalance);
+        // Render de pagina
+        $render = $this->startBuffering('Rekeningen');
+        
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto'>";
+        
+        // Header sectie
+        echo "
+            <div class='flex justify-between items-center mb-6'>
+                <h1 class='text-2xl font-bold'>Rekeningen</h1>
+                <a href='/accounts/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                    <i class='material-icons mr-1 text-sm'>add</i> Nieuwe rekening
+                </a>
+            </div>";
+        
+        // Totaal saldo kaart
+        echo "
+            <div class='bg-white rounded-lg shadow-md p-6 mb-6'>
+                <div class='flex items-center justify-between'>
+                    <div>
+                        <h2 class='text-lg font-semibold'>Totaal saldo</h2>
+                        <p class='text-3xl font-bold mt-1'>€" . number_format($totalBalance, 2, ',', '.') . "</p>
+                    </div>
+                    <div class='text-right'>
+                        <p class='text-sm text-gray-500'>" . count($accounts) . " rekeningen</p>
+                    </div>
+                </div>
+            </div>";
+        
+        // Rekeningen grid
+        if (empty($accounts)) {
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-8 text-center'>
+                    <i class='material-icons text-gray-400 text-6xl mb-4'>account_balance</i>
+                    <h2 class='text-xl font-semibold mb-2'>Geen rekeningen</h2>
+                    <p class='text-gray-500 mb-6'>
+                        Je hebt nog geen rekeningen toegevoegd. Maak een rekening aan om je financiën bij te houden.
+                    </p>
+                    <a href='/accounts/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                        <i class='material-icons mr-1 text-sm'>add</i> Nieuwe rekening
+                    </a>
+                </div>";
+        } else {
+            echo "<div class='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>";
+            
+            foreach ($accounts as $account) {
+                $balanceClass = $account['balance'] < 0 ? 'text-red-600' : 'text-green-600';
+                $balanceSign = $account['balance'] < 0 ? '-' : '';
+                $formattedBalance = number_format(abs($account['balance']), 2, ',', '.');
+                
+                echo "
+                    <div class='bg-white rounded-lg shadow-md overflow-hidden'>
+                        <div class='p-6'>
+                            <div class='flex justify-between items-start mb-4'>
+                                <div>
+                                    <h3 class='text-lg font-semibold'>" . htmlspecialchars($account['name']) . "</h3>
+                                    <p class='text-sm text-gray-500'>" . htmlspecialchars($account['type_name'] ?? 'Rekening') . "</p>
+                                </div>
+                                <div class='flex space-x-2'>
+                                    <a href='/accounts/edit?id=" . $account['id'] . "' class='text-blue-600 hover:text-blue-800'>
+                                        <i class='material-icons text-sm'>edit</i>
+                                    </a>
+                                    <a href='/accounts/delete?id=" . $account['id'] . "' onclick='return confirm(\"Weet je zeker dat je deze rekening wilt verwijderen?\")' class='text-red-600 hover:text-red-800'>
+                                        <i class='material-icons text-sm'>delete</i>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class='flex justify-between items-center mt-2'>
+                                <span class='text-sm text-gray-500'>Saldo</span>
+                                <span class='text-lg font-bold {$balanceClass}'>{$balanceSign}€{$formattedBalance}</span>
+                            </div>
+                        </div>
+                        <div class='border-t px-6 py-3 bg-gray-50'>
+                            <div class='flex justify-between'>
+                                <a href='/transactions?account_id=" . $account['id'] . "' class='text-sm text-blue-600 hover:text-blue-800'>
+                                    <i class='material-icons text-sm align-middle mr-1'>receipt</i> Transacties
+                                </a>
+                                <a href='/accounts/adjust-balance?id=" . $account['id'] . "' class='text-sm text-blue-600 hover:text-blue-800'>
+                                    <i class='material-icons text-sm align-middle mr-1'>balance</i> Saldo aanpassen
+                                </a>
+                            </div>
+                        </div>
+                    </div>";
+            }
+            
+            echo "</div>";
+        }
+        
+        echo "</div>";
+        
+        // Render de pagina
+        $render();
     }
     
     public function create() {

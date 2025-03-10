@@ -1,0 +1,43 @@
+# IDE en editor bestanden
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Systeembestanden
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs en tijdelijke bestanden
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tmp
+*.temp
+
+# Configuratie bestanden met gevoelige informatie
+.env
+config.php
+/config/database.php
+
+# Vendor mappen (als je Composer of NPM gebruikt)
+/vendor/
+/node_modules/
+
+# Gecompileerde CSS en JS bestanden (als je deze lokaal genereert)
+/public/assets/dist/
+/public/build/
+
+# Cache en sessiebestanden
+/cache/
+/sessions/
+
+# Uploads en gebruikersbestanden (optioneel, afhankelijk van jouw app)
+# /public/uploads/
+
+# Database bestanden
+*.sqlite
+*.db 

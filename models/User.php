@@ -21,6 +21,11 @@ class User {
         return $db->fetch("SELECT * FROM " . self::$table . " WHERE username = ?", [$username]);
     }
     
+    public static function getByToken($token) {
+        $db = Database::getInstance();
+        return $db->fetch("SELECT * FROM " . self::$table . " WHERE reset_token = ?", [$token]);
+    }
+    
     public static function create($data) {
         $db = Database::getInstance();
         return $db->insert(self::$table, $data);

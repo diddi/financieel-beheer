@@ -180,4 +180,35 @@ class RecurringTransaction {
             );
         }
     }
+    
+    /**
+     * Haalt aankomende terugkerende transacties op voor een gebruiker
+     * 
+     * @param int $userId De gebruikers-ID
+     * @param array $options Opties (limit, orderBy, etc.)
+     * @return array De aankomende transacties
+     */
+    public static function getUpcoming($userId, $options = []) {
+        $db = Database::getInstance();
+        
+        // Standaard opties
+        $limit = $options['limit'] ?? 10;
+        $orderBy = $options['orderBy'] ?? 'next_due_date ASC';
+        
+        $sql = "SELECT t.*, c.name as category_name, c.color, a.name as account_name,
+                DATEDIFF(t.next_due_date, CURDATE()) as days_until_due
+                FROM " . self::$table . " t 
+                LEFT JOIN categories c ON t.category_id = c.id 
+                LEFT JOIN accounts a ON t.account_id = a.id 
+                WHERE t.user_id = ? AND t.is_active = 1
+                AND t.next_due_date >= CURDATE()
+                AND (t.end_date IS NULL OR t.end_date >= CURDATE())
+                ORDER BY " . $orderBy;
+                
+        if ($limit) {
+            $sql .= " LIMIT " . (int)$limit;
+        }
+        
+        return $db->fetchAll($sql, [$userId]);
+    }
 }

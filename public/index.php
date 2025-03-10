@@ -6,36 +6,8 @@ error_reporting(E_ALL);
 // Pad naar bestanden
 define('ROOT_PATH', dirname(__DIR__));
 
-// Laad autoloader
-require_once ROOT_PATH . '/vendor/autoload.php';
-
-// Handmatig klassen laden (als fallback)
-require_once ROOT_PATH . '/core/Session.php';
-require_once ROOT_PATH . '/core/Router.php';
-require_once ROOT_PATH . '/core/Database.php';
-require_once ROOT_PATH . '/core/Auth.php';
-require_once ROOT_PATH . '/models/User.php';
-require_once ROOT_PATH . '/models/Account.php';
-require_once ROOT_PATH . '/models/AccountType.php';
-require_once ROOT_PATH . '/models/Category.php';
-require_once ROOT_PATH . '/models/Transaction.php';
-require_once ROOT_PATH . '/models/Budget.php';
-require_once ROOT_PATH . '/models/SavingsGoal.php';
-require_once ROOT_PATH . '/models/RecurringTransaction.php';
-require_once ROOT_PATH . '/models/Notification.php';
-require_once ROOT_PATH . '/controllers/AuthController.php';
-require_once ROOT_PATH . '/controllers/DashboardController.php';
-require_once ROOT_PATH . '/controllers/TransactionController.php';
-require_once ROOT_PATH . '/controllers/AccountController.php';
-require_once ROOT_PATH . '/controllers/CategoryController.php';
-require_once ROOT_PATH . '/controllers/BudgetController.php';
-require_once ROOT_PATH . '/controllers/ReportController.php';
-require_once ROOT_PATH . '/controllers/SavingsController.php';
-require_once ROOT_PATH . '/controllers/ExportController.php';
-require_once ROOT_PATH . '/controllers/NotificationController.php';
-require_once ROOT_PATH . '/controllers/RecurringTransactionController.php';
-require_once ROOT_PATH . '/services/ExportService.php';
-require_once ROOT_PATH . '/services/NotificationService.php';
+// Gebruik de centrale autoloader
+require_once ROOT_PATH . '/autoload.php';
 
 use App\Core\Router;
 use App\Core\Session;
@@ -52,6 +24,11 @@ $router->register('/', ['controller' => 'DashboardController', 'action' => 'inde
 $router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
 $router->register('/register', ['controller' => 'AuthController', 'action' => 'register']);
 $router->register('/logout', ['controller' => 'AuthController', 'action' => 'logout']);
+$router->register('/profile', ['controller' => 'AuthController', 'action' => 'profile']);
+$router->register('/profile/update', ['controller' => 'AuthController', 'action' => 'updateProfile'], 'POST');
+$router->register('/profile/change-password', ['controller' => 'AuthController', 'action' => 'changePassword'], 'POST');
+$router->register('/forgot-password', ['controller' => 'AuthController', 'action' => 'forgotPassword']);
+$router->register('/reset-password', ['controller' => 'AuthController', 'action' => 'resetPassword'], 'POST');
 
 // Transaction routes
 $router->register('/transactions', ['controller' => 'TransactionController', 'action' => 'index']);

@@ -2,34 +2,230 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Services\ExportService;
 
-class ExportController {
+class ExportController extends Controller {
     
     /**
      * Toon exportopties
      */
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
+        $userId = $this->requireLogin();
         
-        $userId = Auth::id();
-        
-        // Haal accounts op voor filters
+        // Haal rekeningen op
         $accounts = Account::getAllByUser($userId);
         
-        // Haal categorieën op voor filters
-        $categories = Category::getAllByUser($userId);
+        // Render de pagina
+        $render = $this->startBuffering('Export');
         
-        // Toon exportpagina
-        $this->renderExportPage($accounts, $categories);
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto'>";
+        
+        // Header sectie
+        echo "
+            <div class='mb-6'>
+                <h1 class='text-2xl font-bold'>Exporteren</h1>
+                <p class='text-gray-500 mt-1'>Exporteer je financiële gegevens in verschillende formaten</p>
+            </div>";
+        
+        // Export kaarten
+        echo "
+            <div class='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8'>
+                <!-- Transacties export -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='mb-4'>
+                        <div class='flex items-center mb-2'>
+                            <i class='material-icons text-blue-600 mr-2'>receipt</i>
+                            <h2 class='text-lg font-semibold'>Transacties</h2>
+                        </div>
+                        <p class='text-gray-500 text-sm'>Exporteer al je transacties of filter op rekening en datum</p>
+                    </div>
+                    
+                    <form action='/export/transactions' method='post' class='space-y-4'>
+                        <div>
+                            <label for='account_id' class='block text-sm font-medium text-gray-700 mb-1'>Rekening</label>
+                            <select id='account_id' name='account_id' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                                <option value=''>Alle rekeningen</option>";
+        
+        foreach ($accounts as $account) {
+            echo "<option value='" . $account['id'] . "'>" . htmlspecialchars($account['name']) . "</option>";
+        }
+        
+        echo "
+                            </select>
+                        </div>
+                        
+                        <div class='grid grid-cols-2 gap-4'>
+                            <div>
+                                <label for='date_from' class='block text-sm font-medium text-gray-700 mb-1'>Van datum</label>
+                                <input type='date' id='date_from' name='date_from' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            </div>
+                            
+                            <div>
+                                <label for='date_to' class='block text-sm font-medium text-gray-700 mb-1'>Tot datum</label>
+                                <input type='date' id='date_to' name='date_to' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class='block text-sm font-medium text-gray-700 mb-1'>Formaat</label>
+                            <div class='flex space-x-4'>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='format_csv' name='format' value='csv' checked class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='format_csv' class='ml-2 block text-sm text-gray-700'>CSV</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='format_xlsx' name='format' value='xlsx' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='format_xlsx' class='ml-2 block text-sm text-gray-700'>Excel</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='format_pdf' name='format' value='pdf' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='format_pdf' class='ml-2 block text-sm text-gray-700'>PDF</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type='submit' class='w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                            Exporteren
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Budgetten export -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='mb-4'>
+                        <div class='flex items-center mb-2'>
+                            <i class='material-icons text-green-600 mr-2'>savings</i>
+                            <h2 class='text-lg font-semibold'>Budgetten</h2>
+                        </div>
+                        <p class='text-gray-500 text-sm'>Exporteer je budgetgegevens en hun huidige status</p>
+                    </div>
+                    
+                    <form action='/export/budgets' method='post' class='space-y-4'>                        
+                        <div>
+                            <label class='block text-sm font-medium text-gray-700 mb-1'>Formaat</label>
+                            <div class='flex space-x-4'>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='budget_format_csv' name='format' value='csv' checked class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='budget_format_csv' class='ml-2 block text-sm text-gray-700'>CSV</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='budget_format_xlsx' name='format' value='xlsx' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='budget_format_xlsx' class='ml-2 block text-sm text-gray-700'>Excel</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='budget_format_pdf' name='format' value='pdf' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='budget_format_pdf' class='ml-2 block text-sm text-gray-700'>PDF</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type='submit' class='w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'>
+                            Exporteren
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Categorieën export -->
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <div class='mb-4'>
+                        <div class='flex items-center mb-2'>
+                            <i class='material-icons text-purple-600 mr-2'>category</i>
+                            <h2 class='text-lg font-semibold'>Categorieën</h2>
+                        </div>
+                        <p class='text-gray-500 text-sm'>Exporteer je categorieën voor uitgaven en inkomsten</p>
+                    </div>
+                    
+                    <form action='/export/categories' method='post' class='space-y-4'>
+                        <div>
+                            <label class='block text-sm font-medium text-gray-700 mb-1'>Type</label>
+                            <div class='flex space-x-4'>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='type_all' name='type' value='all' checked class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='type_all' class='ml-2 block text-sm text-gray-700'>Alle</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='type_expense' name='type' value='expense' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='type_expense' class='ml-2 block text-sm text-gray-700'>Uitgaven</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='type_income' name='type' value='income' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='type_income' class='ml-2 block text-sm text-gray-700'>Inkomsten</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class='block text-sm font-medium text-gray-700 mb-1'>Formaat</label>
+                            <div class='flex space-x-4'>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='cat_format_csv' name='format' value='csv' checked class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='cat_format_csv' class='ml-2 block text-sm text-gray-700'>CSV</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='cat_format_xlsx' name='format' value='xlsx' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='cat_format_xlsx' class='ml-2 block text-sm text-gray-700'>Excel</label>
+                                </div>
+                                <div class='flex items-center'>
+                                    <input type='radio' id='cat_format_pdf' name='format' value='pdf' class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300'>
+                                    <label for='cat_format_pdf' class='ml-2 block text-sm text-gray-700'>PDF</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type='submit' class='w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'>
+                            Exporteren
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Import sectie -->
+            <div class='bg-white rounded-lg shadow-md p-6'>
+                <div class='mb-4'>
+                    <div class='flex items-center mb-2'>
+                        <i class='material-icons text-gray-600 mr-2'>upload_file</i>
+                        <h2 class='text-lg font-semibold'>Importeren</h2>
+                    </div>
+                    <p class='text-gray-500 text-sm'>Importeer transacties vanuit CSV- of XLSX-bestanden</p>
+                </div>
+                
+                <form action='/import/transactions' method='post' enctype='multipart/form-data' class='space-y-4'>
+                    <div>
+                        <label for='import_file' class='block text-sm font-medium text-gray-700 mb-1'>Bestand</label>
+                        <input type='file' id='import_file' name='import_file' accept='.csv,.xlsx' class='block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'>
+                    </div>
+                    
+                    <div>
+                        <label for='import_account' class='block text-sm font-medium text-gray-700 mb-1'>Rekening</label>
+                        <select id='import_account' name='account_id' required class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            <option value=''>Selecteer rekening</option>";
+        
+        foreach ($accounts as $account) {
+            echo "<option value='" . $account['id'] . "'>" . htmlspecialchars($account['name']) . "</option>";
+        }
+        
+        echo "
+                        </select>
+                    </div>
+                    
+                    <button type='submit' class='inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                        Importeren
+                    </button>
+                </form>
+            </div>
+        ";
+        
+        // Einde content div
+        echo "</div>";
+        
+        // Render de pagina
+        $render();
     }
     
     /**

@@ -2,21 +2,16 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\Category;
 use App\Services\NotificationService;
 
-class TransactionController {
+class TransactionController extends Controller {
     
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
-        
-        $userId = Auth::id();
+        $userId = $this->requireLogin();
         
         // Filters uit request
         $filters = [];
@@ -39,8 +34,182 @@ class TransactionController {
         // Haal transacties op
         $transactions = Transaction::getAllByUser($userId, $filters);
         
-        // Geef de view weer
-        $this->renderTransactionsList($transactions);
+        // Haal rekeningen en categorieën op voor filters
+        $accounts = Account::getAllByUser($userId);
+        $categories = Category::getAllByUser($userId);
+        
+        // Render de pagina
+        $render = $this->startBuffering('Transacties');
+        
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto'>";
+        
+        // Header sectie
+        echo "
+            <div class='flex flex-col md:flex-row justify-between items-start md:items-center mb-6'>
+                <h1 class='text-2xl font-bold mb-4 md:mb-0'>Transacties</h1>
+                <div class='flex space-x-2'>
+                    <a href='/transactions/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                        <i class='material-icons mr-1 text-sm'>add</i> Nieuwe transactie
+                    </a>
+                    <button id='toggle-filters' class='inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                        <i class='material-icons mr-1 text-sm'>filter_list</i> Filters
+                    </button>
+                </div>
+            </div>";
+        
+        // Filters sectie
+        $showFilters = !empty($filters);
+        echo "
+            <div id='filters-container' class='bg-white rounded-lg shadow-md p-6 mb-6" . ($showFilters ? '' : ' hidden') . "'>
+                <form action='/transactions' method='GET' class='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <div>
+                        <label for='account_id' class='block text-sm font-medium text-gray-700 mb-1'>Rekening</label>
+                        <select id='account_id' name='account_id' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            <option value=''>Alle rekeningen</option>";
+        
+        foreach ($accounts as $account) {
+            $selected = isset($filters['account_id']) && $filters['account_id'] == $account['id'] ? 'selected' : '';
+            echo "<option value='" . $account['id'] . "' " . $selected . ">" . htmlspecialchars($account['name']) . "</option>";
+        }
+        
+        echo "
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for='category_id' class='block text-sm font-medium text-gray-700 mb-1'>Categorie</label>
+                        <select id='category_id' name='category_id' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            <option value=''>Alle categorieën</option>";
+        
+        foreach ($categories as $category) {
+            $selected = isset($filters['category_id']) && $filters['category_id'] == $category['id'] ? 'selected' : '';
+            echo "<option value='" . $category['id'] . "' " . $selected . ">" . htmlspecialchars($category['name']) . "</option>";
+        }
+        
+        echo "
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for='type' class='block text-sm font-medium text-gray-700 mb-1'>Type</label>
+                        <select id='type' name='type' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                            <option value=''>Alle types</option>
+                            <option value='expense' " . (isset($filters['type']) && $filters['type'] == 'expense' ? 'selected' : '') . ">Uitgaven</option>
+                            <option value='income' " . (isset($filters['type']) && $filters['type'] == 'income' ? 'selected' : '') . ">Inkomsten</option>
+                            <option value='transfer' " . (isset($filters['type']) && $filters['type'] == 'transfer' ? 'selected' : '') . ">Overboekingen</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for='date_from' class='block text-sm font-medium text-gray-700 mb-1'>Vanaf datum</label>
+                        <input type='date' id='date_from' name='date_from' value='" . ($filters['date_from'] ?? '') . "' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                    </div>
+                    
+                    <div>
+                        <label for='date_to' class='block text-sm font-medium text-gray-700 mb-1'>Tot datum</label>
+                        <input type='date' id='date_to' name='date_to' value='" . ($filters['date_to'] ?? '') . "' class='block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                    </div>
+                    
+                    <div class='flex items-end space-x-2'>
+                        <button type='submit' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                            <i class='material-icons mr-1 text-sm'>search</i> Zoeken
+                        </button>
+                        <a href='/transactions' class='inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                            <i class='material-icons mr-1 text-sm'>clear</i> Reset
+                        </a>
+                    </div>
+                </form>
+            </div>";
+        
+        // Transacties tabel
+        echo "
+            <div class='bg-white rounded-lg shadow-md overflow-hidden'>
+                <div class='overflow-x-auto'>";
+        
+        if (empty($transactions)) {
+            echo "
+                    <div class='p-8 text-center'>
+                        <p class='text-gray-500'>Geen transacties gevonden.</p>
+                        <a href='/transactions/create' class='mt-4 inline-block text-blue-600 hover:text-blue-800'>Nieuwe transactie toevoegen</a>
+                    </div>";
+        } else {
+            echo "
+                    <table class='min-w-full divide-y divide-gray-200'>
+                        <thead class='bg-gray-50'>
+                            <tr>
+                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Datum</th>
+                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Beschrijving</th>
+                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Categorie</th>
+                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Rekening</th>
+                                <th scope='col' class='px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>Bedrag</th>
+                                <th scope='col' class='px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody class='bg-white divide-y divide-gray-200'>";
+            
+            foreach ($transactions as $transaction) {
+                $typeClass = $transaction['type'] === 'income' ? 'text-green-600' : ($transaction['type'] === 'expense' ? 'text-red-600' : 'text-blue-600');
+                $amountPrefix = $transaction['type'] === 'income' ? '+' : ($transaction['type'] === 'expense' ? '-' : '');
+                $amount = number_format(abs($transaction['amount']), 2, ',', '.');
+                
+                echo "
+                            <tr class='hover:bg-gray-50'>
+                                <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>" . date('d-m-Y', strtotime($transaction['date'])) . "</td>
+                                <td class='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>" . htmlspecialchars($transaction['description']) . "</td>
+                                <td class='px-6 py-4 whitespace-nowrap'>";
+                
+                if (!empty($transaction['category_name'])) {
+                    echo "
+                                    <span class='px-2 py-1 text-xs rounded-full' style='background-color: " . ($transaction['color'] ?? '#e5e7eb') . "20; color: " . ($transaction['color'] ?? '#374151') . "'>
+                                        " . htmlspecialchars($transaction['category_name']) . "
+                                    </span>";
+                } else {
+                    echo "<span class='text-gray-400'>-</span>";
+                }
+                
+                echo "
+                                </td>
+                                <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>" . htmlspecialchars($transaction['account_name']) . "</td>
+                                <td class='px-6 py-4 whitespace-nowrap text-sm font-medium text-right {$typeClass}'>{$amountPrefix}€{$amount}</td>
+                                <td class='px-6 py-4 whitespace-nowrap text-right text-sm font-medium'>
+                                    <a href='/transactions/edit?id=" . $transaction['id'] . "' class='text-blue-600 hover:text-blue-900 mr-3'>
+                                        <i class='material-icons text-sm align-middle'>edit</i>
+                                    </a>
+                                    <a href='/transactions/delete?id=" . $transaction['id'] . "' onclick='return confirm(\"Weet je zeker dat je deze transactie wilt verwijderen?\")' class='text-red-600 hover:text-red-900'>
+                                        <i class='material-icons text-sm align-middle'>delete</i>
+                                    </a>
+                                </td>
+                            </tr>";
+            }
+            
+            echo "
+                        </tbody>
+                    </table>";
+        }
+        
+        echo "
+                </div>
+            </div>";
+        
+        // Einde content div
+        echo "</div>";
+        
+        // JavaScript voor filters toggle
+        echo "
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleFiltersBtn = document.getElementById('toggle-filters');
+            const filtersContainer = document.getElementById('filters-container');
+            
+            toggleFiltersBtn.addEventListener('click', function() {
+                filtersContainer.classList.toggle('hidden');
+            });
+        });
+        </script>";
+        
+        // Render de pagina
+        $render();
     }
     
     public function create() {
@@ -287,77 +456,6 @@ class TransactionController {
     }
     
     // Hulpmethoden voor het weergeven van views
-    
-    private function renderTransactionsList($transactions) {
-        echo "
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Financieel Beheer - Transacties</title>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <script src='https://cdn.tailwindcss.com'></script>
-        </head>
-        <body class='bg-gray-100 min-h-screen'>";
-    
-    // Sluit de echo, voeg het navigatiecomponent toe
-    include_once __DIR__ . '/../views/components/navigation.php';
-    
-    // Hervat de echo voor de rest van de HTML
-    echo "
-            <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-                <div class='md:flex md:items-center md:justify-between mb-6'>
-                    <h1 class='text-2xl font-bold'>Transacties</h1>
-                    <div class='mt-4 md:mt-0'>
-                        <a href='/transactions/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
-                            Nieuwe transactie
-                        </a>
-                    </div>
-                </div>
-                
-                <div class='bg-white shadow overflow-hidden sm:rounded-lg'>
-                    <table class='min-w-full divide-y divide-gray-200'>
-                        <thead class='bg-gray-50'>
-                            <tr>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Datum</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Beschrijving</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Categorie</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Rekening</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Bedrag</th>
-                                <th scope='col' class='px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody class='bg-white divide-y divide-gray-200'>";
-        
-        if (empty($transactions)) {
-            echo "<tr><td colspan='6' class='px-6 py-4 text-center text-gray-500'>Geen transacties gevonden</td></tr>";
-        } else {
-            foreach ($transactions as $transaction) {
-                $type = $transaction['type'];
-                $amountClass = $type === 'expense' ? 'text-red-600' : 'text-green-600';
-                $amountPrefix = $type === 'expense' ? '-' : '+';
-                
-                echo "<tr>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>" . date('d-m-Y', strtotime($transaction['date'])) . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>" . htmlspecialchars($transaction['description']) . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>" . htmlspecialchars($transaction['category_name'] ?? '-') . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>" . htmlspecialchars($transaction['account_name']) . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm font-medium {$amountClass}'>{$amountPrefix}€" . number_format($transaction['amount'], 2, ',', '.') . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-right text-sm font-medium'>
-                            <a href='/transactions/edit?id=" . $transaction['id'] . "' class='text-blue-600 hover:text-blue-900 mr-3'>Bewerken</a>
-                            <a href='/transactions/delete?id=" . $transaction['id'] . "' class='text-red-600 hover:text-red-900' onclick='return confirm(\"Weet je zeker dat je deze transactie wilt verwijderen?\")'>Verwijderen</a>
-                        </td>
-                    </tr>";
-            }
-        }
-        
-        echo "      </tbody>
-                    </table>
-                </div>
-            </div>
-        </body>
-        </html>
-        ";
-    }
     
     private function renderTransactionForm($transaction, $accounts, $expenseCategories, $incomeCategories, $errors = [], $oldInput = []) {
         $isEdit = $transaction !== null;

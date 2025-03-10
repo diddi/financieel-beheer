@@ -2,576 +2,534 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
 
-class BudgetController {
+class BudgetController extends Controller {
     
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
-        
-        $userId = Auth::id();
-        
-        // Haal budgetstatus op
-        $budgetStatus = Budget::getBudgetStatus($userId);
+        $userId = $this->requireLogin();
         
         // Haal alle budgetten op
         $budgets = Budget::getAllByUser($userId);
         
-        // Geef de view weer
+        // Bereken budgetstatus
+        $budgetStatus = Budget::getBudgetStatus($userId);
+        
+        // Render de pagina
+        $render = $this->startBuffering('Budgetten');
+        
+        // Render de lijst van budgetten
         $this->renderBudgetsList($budgets, $budgetStatus);
+        
+        // Render de pagina
+        $render();
     }
     
     public function create() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
+        $userId = $this->requireLogin();
         
-        $userId = Auth::id();
+        // Haal categorieën op
+        $categories = Category::getAllByUser($userId);
         
-        // Haal uitgavencategorieën op
-        $categories = Category::getAllByUserAndType($userId, 'expense');
+        // Render de pagina
+        $render = $this->startBuffering('Nieuw budget');
         
-        // Geef het formulier weer
+        // Render het formulier
         $this->renderBudgetForm($categories);
+        
+        // Render de pagina
+        $render();
     }
     
     public function store() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
+        $userId = $this->requireLogin();
         
-        $userId = Auth::id();
-        
-        // Valideer input
-        $categoryId = $_POST['category_id'] ?? '';
-        $amount = $_POST['amount'] ?? '';
-        $period = $_POST['period'] ?? 'monthly';
-        $alertThreshold = $_POST['alert_threshold'] ?? 80;
-        $isActive = isset($_POST['is_active']) ? 1 : 0;
-        
+        // Valideer de invoer
         $errors = [];
         
-        if (empty($categoryId)) {
-            $errors['category_id'] = 'Selecteer een categorie';
+        if (empty($_POST['category_id'])) {
+            $errors['category_id'] = 'Categorie is verplicht';
         }
         
-        if (empty($amount) || !is_numeric($amount) || $amount <= 0) {
-            $errors['amount'] = 'Voer een geldig bedrag in';
+        if (empty($_POST['amount']) || !is_numeric($_POST['amount']) || floatval($_POST['amount']) <= 0) {
+            $errors['amount'] = 'Voer een geldig bedrag in (groter dan 0)';
         }
         
-        if (!in_array($period, ['daily', 'weekly', 'monthly', 'yearly'])) {
-            $errors['period'] = 'Selecteer een geldige periode';
+        if (empty($_POST['start_date']) || !strtotime($_POST['start_date'])) {
+            $errors['start_date'] = 'Voer een geldige startdatum in';
         }
         
-        if (!is_numeric($alertThreshold) || $alertThreshold < 0 || $alertThreshold > 100) {
-            $errors['alert_threshold'] = 'Drempel moet tussen 0 en 100 procent zijn';
+        if (empty($_POST['end_date']) || !strtotime($_POST['end_date'])) {
+            $errors['end_date'] = 'Voer een geldige einddatum in';
         }
         
-        // Controleer of er al een budget bestaat voor deze categorie
-        $existingBudget = Budget::getActiveByUser($userId, $categoryId);
-        if (!empty($existingBudget)) {
-            $errors['category_id'] = 'Er bestaat al een budget voor deze categorie';
+        if (!empty($_POST['start_date']) && !empty($_POST['end_date']) 
+            && strtotime($_POST['start_date']) > strtotime($_POST['end_date'])) {
+            $errors['end_date'] = 'Einddatum moet na startdatum liggen';
         }
         
         // Als er fouten zijn, toon het formulier opnieuw
         if (!empty($errors)) {
-            $categories = Category::getAllByUserAndType($userId, 'expense');
+            $categories = Category::getAllByUser($userId);
+            
+            $render = $this->startBuffering('Nieuw budget');
             $this->renderBudgetForm($categories, null, $errors, $_POST);
+            $render();
             return;
         }
         
-        // Bereken begin- en einddatum
-        $startDate = date('Y-m-d'); // Vandaag
-        
-        // Sla het budget op
+        // Bereid gegevens voor
         $budgetData = [
             'user_id' => $userId,
-            'category_id' => $categoryId,
-            'amount' => $amount,
-            'period' => $period,
-            'start_date' => $startDate,
-            'is_active' => $isActive,
-            'alert_threshold' => $alertThreshold
+            'category_id' => $_POST['category_id'],
+            'amount' => floatval($_POST['amount']),
+            'start_date' => $_POST['start_date'],
+            'end_date' => $_POST['end_date'],
+            'created_at' => date('Y-m-d H:i:s')
         ];
         
+        // Sla budget op
         $budgetId = Budget::create($budgetData);
         
-        // Redirect naar budgetten overzicht
-        header('Location: /budgets');
+        // Redirect naar overzicht
+        header('Location: /budgets?message=Budget succesvol aangemaakt');
         exit;
     }
     
     public function edit($id = null) {
-        // ID uit URL halen als het niet als parameter is doorgegeven
-        if ($id === null) {
-            $id = isset($_GET['id']) ? $_GET['id'] : null;
-        }
+        $userId = $this->requireLogin();
         
-        if (!$id) {
-            header('Location: /budgets');
+        // Controleer of er een ID is opgegeven
+        $budgetId = $id ?? ($_GET['id'] ?? null);
+        if (!$budgetId || !is_numeric($budgetId)) {
+            header('Location: /budgets?error=Ongeldig budget ID');
             exit;
         }
-        
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
-        
-        $userId = Auth::id();
         
         // Haal budget op
-        $budget = Budget::getById($id, $userId);
+        $budget = Budget::getById($budgetId, $userId);
         
+        // Controleer of het budget bestaat en van de ingelogde gebruiker is
         if (!$budget) {
-            header('Location: /budgets');
+            header('Location: /budgets?error=Budget niet gevonden');
             exit;
         }
         
-        // Haal uitgavencategorieën op
-        $categories = Category::getAllByUserAndType($userId, 'expense');
+        // Haal categorieën op
+        $categories = Category::getAllByUser($userId);
         
-        // Geef het formulier weer
+        // Render de pagina
+        $render = $this->startBuffering('Budget bewerken');
+        
+        // Render het formulier
         $this->renderBudgetForm($categories, $budget);
+        
+        // Render de pagina
+        $render();
     }
     
     public function update() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
+        $userId = $this->requireLogin();
+        
+        // Controleer of er een ID is opgegeven
+        if (empty($_GET['id']) || !is_numeric($_GET['id'])) {
+            header('Location: /budgets?error=Ongeldig budget ID');
             exit;
         }
         
-        $userId = Auth::id();
-        $id = $_POST['id'] ?? null;
+        $budgetId = $_GET['id'];
         
-        if (!$id) {
-            header('Location: /budgets');
+        // Haal het budget op
+        $budget = Budget::getById($budgetId, $userId);
+        
+        // Controleer of het budget bestaat en van de ingelogde gebruiker is
+        if (!$budget) {
+            header('Location: /budgets?error=Budget niet gevonden');
             exit;
         }
         
-        // Valideer input (zelfde als bij store)
-        $categoryId = $_POST['category_id'] ?? '';
-        $amount = $_POST['amount'] ?? '';
-        $period = $_POST['period'] ?? 'monthly';
-        $alertThreshold = $_POST['alert_threshold'] ?? 80;
-        $isActive = isset($_POST['is_active']) ? 1 : 0;
-        
+        // Valideer de invoer
         $errors = [];
         
-        if (empty($categoryId)) {
-            $errors['category_id'] = 'Selecteer een categorie';
+        if (empty($_POST['category_id'])) {
+            $errors['category_id'] = 'Categorie is verplicht';
         }
         
-        if (empty($amount) || !is_numeric($amount) || $amount <= 0) {
-            $errors['amount'] = 'Voer een geldig bedrag in';
+        if (empty($_POST['amount']) || !is_numeric($_POST['amount']) || floatval($_POST['amount']) <= 0) {
+            $errors['amount'] = 'Voer een geldig bedrag in (groter dan 0)';
         }
         
-        if (!in_array($period, ['daily', 'weekly', 'monthly', 'yearly'])) {
-            $errors['period'] = 'Selecteer een geldige periode';
+        if (empty($_POST['start_date']) || !strtotime($_POST['start_date'])) {
+            $errors['start_date'] = 'Voer een geldige startdatum in';
         }
         
-        if (!is_numeric($alertThreshold) || $alertThreshold < 0 || $alertThreshold > 100) {
-            $errors['alert_threshold'] = 'Drempel moet tussen 0 en 100 procent zijn';
+        if (empty($_POST['end_date']) || !strtotime($_POST['end_date'])) {
+            $errors['end_date'] = 'Voer een geldige einddatum in';
         }
         
-        // Haal het huidige budget op
-        $budget = Budget::getById($id, $userId);
-        
-        if (!$budget) {
-            header('Location: /budgets');
-            exit;
-        }
-        
-        // Controleer of er al een budget bestaat voor deze categorie (als categorie wordt gewijzigd)
-        if ($budget['category_id'] != $categoryId) {
-            $existingBudget = Budget::getActiveByUser($userId, $categoryId);
-            if (!empty($existingBudget)) {
-                $errors['category_id'] = 'Er bestaat al een budget voor deze categorie';
-            }
+        if (!empty($_POST['start_date']) && !empty($_POST['end_date']) 
+            && strtotime($_POST['start_date']) > strtotime($_POST['end_date'])) {
+            $errors['end_date'] = 'Einddatum moet na startdatum liggen';
         }
         
         // Als er fouten zijn, toon het formulier opnieuw
         if (!empty($errors)) {
-            $categories = Category::getAllByUserAndType($userId, 'expense');
+            $categories = Category::getAllByUser($userId);
+            
+            $render = $this->startBuffering('Budget bewerken');
             $this->renderBudgetForm($categories, $budget, $errors, $_POST);
+            $render();
             return;
         }
         
-        // Update het budget
+        // Bereid gegevens voor
         $budgetData = [
-            'category_id' => $categoryId,
-            'amount' => $amount,
-            'period' => $period,
-            'is_active' => $isActive,
-            'alert_threshold' => $alertThreshold
+            'category_id' => $_POST['category_id'],
+            'amount' => floatval($_POST['amount']),
+            'start_date' => $_POST['start_date'],
+            'end_date' => $_POST['end_date'],
+            'updated_at' => date('Y-m-d H:i:s')
         ];
         
-        Budget::update($id, $budgetData, $userId);
+        // Update budget
+        Budget::update($budgetId, $budgetData, $userId);
         
-        // Redirect naar budgetten overzicht
-        header('Location: /budgets');
+        // Redirect naar overzicht
+        header('Location: /budgets?message=Budget succesvol bijgewerkt');
         exit;
     }
     
     public function delete() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
+        $userId = $this->requireLogin();
+        
+        // Controleer of er een ID is opgegeven
+        if (empty($_GET['id']) || !is_numeric($_GET['id'])) {
+            header('Location: /budgets?error=Ongeldig budget ID');
             exit;
         }
         
-        $userId = Auth::id();
-        $id = $_GET['id'] ?? null;
+        $budgetId = $_GET['id'];
         
-        if (!$id) {
-            header('Location: /budgets');
+        // Haal het budget op
+        $budget = Budget::getById($budgetId, $userId);
+        
+        // Controleer of het budget bestaat en van de ingelogde gebruiker is
+        if (!$budget) {
+            header('Location: /budgets?error=Budget niet gevonden');
             exit;
         }
         
         // Verwijder het budget
-        Budget::delete($id, $userId);
+        Budget::delete($budgetId, $userId);
         
-        // Redirect naar budgetten overzicht
-        header('Location: /budgets');
+        // Redirect naar overzicht
+        header('Location: /budgets?message=Budget succesvol verwijderd');
         exit;
     }
     
-    // Hulpmethoden voor het weergeven van views
-    
     private function renderBudgetsList($budgets, $budgetStatus) {
-        // Bereken procentueel budgetgebruik voor de huidige maand
-        $monthlyUsagePercentage = 0;
-        $totalMonthlyBudget = 0;
-        $totalMonthlySpent = 0;
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto'>";
         
-        foreach ($budgetStatus as $status) {
-            if ($status['period'] === 'monthly') {
-                $totalMonthlyBudget += $status['amount'];
-                $totalMonthlySpent += $status['spent'];
-            }
-        }
-        
-        if ($totalMonthlyBudget > 0) {
-            $monthlyUsagePercentage = ($totalMonthlySpent / $totalMonthlyBudget) * 100;
-        }
-        
-        // Genereer de kleur voor de voortgangsbalk
-        $progressColor = 'bg-green-500';
-        if ($monthlyUsagePercentage >= 90) {
-            $progressColor = 'bg-red-500';
-        } elseif ($monthlyUsagePercentage >= 75) {
-            $progressColor = 'bg-yellow-500';
-        }
-        
+        // Header sectie
         echo "
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Financieel Beheer - Budgetten</title>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <script src='https://cdn.tailwindcss.com'></script>
-        </head>
-        <body class='bg-gray-100 min-h-screen'>";
-    
-    // Sluit de echo, voeg het navigatiecomponent toe
-    include_once __DIR__ . '/../views/components/navigation.php';
-    
-    // Hervat de echo voor de rest van de HTML
-    echo " <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-                <div class='md:flex md:items-center md:justify-between mb-6'>
-                    <h1 class='text-2xl font-bold'>Budgetten</h1>
-                    <div class='mt-4 md:mt-0'>
-                        <a href='/budgets/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
-                            Nieuw budget
-                        </a>
-                    </div>
-                </div>
-                
-                <div class='bg-white rounded-lg shadow-md p-6 mb-8'>
-                    <h2 class='text-xl font-bold mb-4'>Maandelijks budget overzicht</h2>
+            <div class='flex justify-between items-center mb-6'>
+                <h1 class='text-2xl font-bold'>Budgetten</h1>
+                <a href='/budgets/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                    <i class='material-icons mr-1 text-sm'>add</i> Nieuw budget
+                </a>
+            </div>";
+        
+        // Statuskaarten
+        if (!empty($budgetStatus)) {
+            echo "<div class='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8'>";
+            
+            // Totaal budget
+            $totalBudget = array_sum(array_column($budgetStatus, 'amount'));
+            $totalSpent = array_sum(array_column($budgetStatus, 'spent'));
+            $percentageSpent = $totalBudget > 0 ? min(100, round(($totalSpent / $totalBudget) * 100)) : 0;
+            
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <h2 class='text-lg font-semibold mb-2'>Totaal budget</h2>
                     <div class='flex justify-between items-center mb-2'>
-                        <div>
-                            <span class='font-semibold'>Totaal budget: </span>
-                            <span class='font-bold'>€" . number_format($totalMonthlyBudget, 2, ',', '.') . "</span>
-                        </div>
-                        <div>
-                            <span class='font-semibold'>Uitgegeven: </span>
-                            <span class='font-bold'>€" . number_format($totalMonthlySpent, 2, ',', '.') . "</span>
-                        </div>
-                        <div>
-                            <span class='font-semibold'>Percentage: </span>
-                            <span class='font-bold'>" . number_format($monthlyUsagePercentage, 1) . "%</span>
-                        </div>
+                        <span class='text-gray-500'>Uitgegeven</span>
+                        <span class='font-medium'>€" . number_format($totalSpent, 2, ',', '.') . " / €" . number_format($totalBudget, 2, ',', '.') . "</span>
                     </div>
-                    <div class='w-full bg-gray-200 rounded-full h-4'>
-                        <div class='h-4 rounded-full {$progressColor}' style='width: " . min(100, $monthlyUsagePercentage) . "%'></div>
+                    <div class='w-full bg-gray-200 rounded-full h-2.5 mb-1'>
+                        <div class='bg-blue-600 h-2.5 rounded-full' style='width: " . $percentageSpent . "%'></div>
+                    </div>
+                    <div class='text-right text-sm text-gray-500'>" . $percentageSpent . "% uitgegeven</div>
+                </div>";
+            
+            // Resterende dagen
+            $currentDate = new \DateTime();
+            $endDate = new \DateTime(end($budgetStatus)['end_date']);
+            $daysRemaining = $currentDate->diff($endDate)->days;
+            $totalDays = (new \DateTime($budgetStatus[0]['start_date']))->diff($endDate)->days;
+            $percentageDays = $totalDays > 0 ? min(100, round((($totalDays - $daysRemaining) / $totalDays) * 100)) : 0;
+            
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <h2 class='text-lg font-semibold mb-2'>Periode</h2>
+                    <div class='flex justify-between items-center mb-2'>
+                        <span class='text-gray-500'>Resterende dagen</span>
+                        <span class='font-medium'>" . $daysRemaining . " / " . $totalDays . " dagen</span>
+                    </div>
+                    <div class='w-full bg-gray-200 rounded-full h-2.5 mb-1'>
+                        <div class='bg-green-600 h-2.5 rounded-full' style='width: " . $percentageDays . "%'></div>
+                    </div>
+                    <div class='text-right text-sm text-gray-500'>" . $percentageDays . "% van de periode verstreken</div>
+                </div>";
+            
+            // Beschikbare budget
+            $remaining = $totalBudget - $totalSpent;
+            $daily = $daysRemaining > 0 ? $remaining / $daysRemaining : 0;
+            
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-6'>
+                    <h2 class='text-lg font-semibold mb-2'>Beschikbaar budget</h2>
+                    <div class='flex justify-between items-center mb-2'>
+                        <span class='text-gray-500'>Resterend</span>
+                        <span class='font-medium'>€" . number_format($remaining, 2, ',', '.') . "</span>
+                    </div>
+                    <div class='flex justify-between items-center'>
+                        <span class='text-gray-500'>Per dag</span>
+                        <span class='font-medium'>€" . number_format($daily, 2, ',', '.') . "</span>
                     </div>
                 </div>";
-                
-        if (empty($budgetStatus)) {
-            echo "<div class='bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6'>
-                    <div class='flex'>
-                        <div class='ml-3'>
-                            <p class='text-sm text-yellow-700'>
-                                Je hebt nog geen budgetten ingesteld. Maak een budget aan om je uitgaven te beheren.
-                            </p>
-                        </div>
-                    </div>
+            
+            echo "</div>";
+        }
+        
+        // Hoofdinhoud
+        if (empty($budgets)) {
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-8 text-center'>
+                    <i class='material-icons text-gray-400 text-6xl mb-4'>account_balance_wallet</i>
+                    <h2 class='text-xl font-semibold mb-2'>Geen budgetten</h2>
+                    <p class='text-gray-500 mb-6'>
+                        Je hebt nog geen budgetten ingesteld. Maak een budget aan om je uitgaven bij te houden.
+                    </p>
+                    <a href='/budgets/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                        <i class='material-icons mr-1 text-sm'>add</i> Nieuw budget
+                    </a>
                 </div>";
         } else {
-            echo "<div class='mb-8'>
-                    <h2 class='text-xl font-bold mb-4'>Actieve budgetten</h2>
-                    <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>";
+            echo "<div class='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>";
             
-            foreach ($budgetStatus as $status) {
-                $progressColor = 'bg-green-500';
+            foreach ($budgets as $budget) {
+                $startDate = date('d-m-Y', strtotime($budget['start_date']));
+                $endDate = date('d-m-Y', strtotime($budget['end_date']));
                 
-                if ($status['is_exceeded']) {
-                    $progressColor = 'bg-red-500';
-                } elseif ($status['is_warning']) {
-                    $progressColor = 'bg-yellow-500';
+                // Zoek bijbehorende status
+                $status = null;
+                foreach ($budgetStatus as $stat) {
+                    if ($stat['id'] == $budget['id']) {
+                        $status = $stat;
+                        break;
+                    }
                 }
                 
-                $periodText = '';
-                switch ($status['period']) {
-                    case 'daily':
-                        $periodText = 'Dagelijks';
-                        break;
-                    case 'weekly':
-                        $periodText = 'Wekelijks';
-                        break;
-                    case 'monthly':
-                        $periodText = 'Maandelijks';
-                        break;
-                    case 'yearly':
-                        $periodText = 'Jaarlijks';
-                        break;
+                $spent = $status ? $status['spent'] : 0;
+                $percentage = $budget['amount'] > 0 ? min(100, round(($spent / $budget['amount']) * 100)) : 0;
+                
+                // Bepaal kleur op basis van percentage
+                $barColor = 'bg-green-500';
+                if ($percentage >= 90) {
+                    $barColor = 'bg-red-500';
+                } elseif ($percentage >= 75) {
+                    $barColor = 'bg-yellow-500';
                 }
                 
-                echo "<div class='bg-white rounded-lg shadow p-6 border-l-4' style='border-color: " . htmlspecialchars($status['color']) . "'>
-                        <div class='flex justify-between items-center mb-2'>
-                            <div>
-                                <h3 class='font-semibold text-lg'>" . htmlspecialchars($status['category_name']) . "</h3>
-                                <p class='text-sm text-gray-500'>{$periodText} budget</p>
-                            </div>
-                            <div class='text-right'>
-                                <div class='font-bold'>" . number_format($status['percentage'], 1) . "%</div>
-                                <div class='text-sm text-gray-500'>
-                                    €" . number_format($status['spent'], 2, ',', '.') . " / €" . number_format($status['amount'], 2, ',', '.') . "
+                echo "
+                    <div class='bg-white rounded-lg shadow-md overflow-hidden'>
+                        <div class='p-6'>
+                            <div class='flex justify-between items-start mb-4'>
+                                <h3 class='text-lg font-semibold'>" . htmlspecialchars($budget['category_name'] ?? 'Onbekende categorie') . "</h3>
+                                <div class='flex space-x-2'>
+                                    <a href='/budgets/edit?id=" . $budget['id'] . "' class='text-blue-600 hover:text-blue-800'>
+                                        <i class='material-icons text-sm'>edit</i>
+                                    </a>
+                                    <a href='/budgets/delete?id=" . $budget['id'] . "' onclick='return confirm(\"Weet je zeker dat je dit budget wilt verwijderen?\")' class='text-red-600 hover:text-red-800'>
+                                        <i class='material-icons text-sm'>delete</i>
+                                    </a>
                                 </div>
                             </div>
-                        </div>
-                        <div class='w-full bg-gray-200 rounded-full h-2.5'>
-                            <div class='h-2.5 rounded-full {$progressColor}' style='width: " . min(100, $status['percentage']) . "%'></div>
-                        </div>
-                        <div class='flex justify-end mt-2'>
-                            <a href='/budgets/edit?id=" . $status['id'] . "' class='text-blue-600 hover:underline text-sm'>
-                                Bewerken
-                            </a>
-                        </div>
+                            
+                            <div class='mb-4'>
+                                <div class='flex justify-between items-center mb-1 text-sm'>
+                                    <span class='text-gray-500'>Uitgegeven</span>
+                                    <span>€" . number_format($spent, 2, ',', '.') . " / €" . number_format($budget['amount'], 2, ',', '.') . "</span>
+                                </div>
+                                <div class='w-full bg-gray-200 rounded-full h-2'>
+                                    <div class='" . $barColor . " h-2 rounded-full' style='width: " . $percentage . "%'></div>
+                                </div>
+                                <div class='text-right text-xs text-gray-500 mt-1'>" . $percentage . "% uitgegeven</div>
+                            </div>
+                            
+                            <div class='text-sm text-gray-500'>
+                                <div class='flex justify-between mb-2'>
+                                    <span>Periode:</span>
+                                    <span>" . $startDate . " t/m " . $endDate . "</span>
+                                </div>";
+                
+                if (!empty($budget['description'])) {
+                    echo "
+                                <div class='mb-2'>
+                                    <span class='block mb-1'>Beschrijving:</span>
+                                    <span class='text-gray-700'>" . nl2br(htmlspecialchars($budget['description'])) . "</span>
+                                </div>";
+                }
+                
+                echo "
+                            </div>
+                        </div>";
+                
+                echo "
                     </div>";
             }
             
-            echo "  </div>
-                </div>";
-        }
-                
-        echo "<div class='bg-white shadow-md rounded-lg overflow-hidden'>
-                    <table class='min-w-full divide-y divide-gray-200'>
-                        <thead class='bg-gray-50'>
-                            <tr>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Categorie</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Periode</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Bedrag</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Drempel</th>
-                                <th scope='col' class='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Status</th>
-                                <th scope='col' class='px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody class='bg-white divide-y divide-gray-200'>";
-        
-        if (empty($budgets)) {
-            echo "<tr><td colspan='6' class='px-6 py-4 text-center text-gray-500'>Geen budgetten gevonden</td></tr>";
-        } else {
-            foreach ($budgets as $budget) {
-                $periodText = '';
-                switch ($budget['period']) {
-                    case 'daily':
-                        $periodText = 'Dagelijks';
-                        break;
-                    case 'weekly':
-                        $periodText = 'Wekelijks';
-                        break;
-                    case 'monthly':
-                        $periodText = 'Maandelijks';
-                        break;
-                    case 'yearly':
-                        $periodText = 'Jaarlijks';
-                        break;
-                }
-                
-                $statusText = $budget['is_active'] ? 'Actief' : 'Inactief';
-                $statusClass = $budget['is_active'] ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-                
-                echo "<tr>
-                        <td class='px-6 py-4 whitespace-nowrap'>
-                            <div class='flex items-center'>
-                                <div class='flex-shrink-0 h-4 w-4 rounded-full' style='background-color: " . htmlspecialchars($budget['color']) . "'></div>
-                                <div class='ml-4 text-sm font-medium text-gray-900'>" . htmlspecialchars($budget['category_name']) . "</div>
-                            </div>
-                        </td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>" . $periodText . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>€" . number_format($budget['amount'], 2, ',', '.') . "</td>
-                        <td class='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>" . $budget['alert_threshold'] . "%</td>
-                        <td class='px-6 py-4 whitespace-nowrap'>
-                            <span class='px-2 inline-flex text-xs leading-5 font-semibold rounded-full {$statusClass}'>
-                                {$statusText}
-                            </span>
-                        </td>
-                        <td class='px-6 py-4 whitespace-nowrap text-right text-sm font-medium'>
-                            <a href='/budgets/edit?id=" . $budget['id'] . "' class='text-blue-600 hover:text-blue-900 mr-3'>Bewerken</a>
-                            <a href='/budgets/delete?id=" . $budget['id'] . "' class='text-red-600 hover:text-red-900' onclick='return confirm(\"Weet je zeker dat je dit budget wilt verwijderen?\")'>Verwijderen</a>
-                        </td>
-                    </tr>";
-            }
+            echo "</div>";
         }
         
-        echo "      </tbody>
-                    </table>
-                </div>
-            </div>
-        </body>
-        </html>
-        ";
+        echo "</div>";
     }
     
-    /**
-     * Renders the budget form
-     * 
-     * @param array $categories The available categories
-     * @param array|null $budget The budget to edit, or null for a new budget
-     * @param array $errors Any validation errors
-     * @param array $oldInput Previously submitted form data
-     */
     private function renderBudgetForm($categories, $budget = null, $errors = [], $oldInput = []) {
         $isEdit = $budget !== null;
         $title = $isEdit ? 'Budget bewerken' : 'Nieuw budget';
-        $action = $isEdit ? '/budgets/update' : '/budgets/store';
         
-        // Bepaal de waarden voor het formulier
-        $categoryIdValue = $isEdit ? $budget['category_id'] : ($oldInput['category_id'] ?? '');
-        $amountValue = $isEdit ? $budget['amount'] : ($oldInput['amount'] ?? '');
-        $periodValue = $isEdit ? $budget['period'] : ($oldInput['period'] ?? 'monthly');
-        $alertThresholdValue = $isEdit ? $budget['alert_threshold'] : ($oldInput['alert_threshold'] ?? '80');
-        $isActiveValue = $isEdit ? $budget['is_active'] : (isset($oldInput['is_active']) ? $oldInput['is_active'] : true);
+        // Begin HTML output
+        echo "<div class='max-w-4xl mx-auto'>";
         
+        // Header met titel en terug-link
         echo "
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Financieel Beheer - {$title}</title>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <script src='https://cdn.tailwindcss.com'></script>
-        </head>
-        <body class='bg-gray-100 min-h-screen'>";
+            <div class='flex justify-between items-center mb-6'>
+                <h1 class='text-2xl font-bold'>" . $title . "</h1>
+                <a href='/budgets' class='text-blue-600 hover:text-blue-800'>
+                    ← Terug naar overzicht
+                </a>
+            </div>";
         
-        // Include navigation component
-        include_once __DIR__ . '/../views/components/navigation.php';
+        // Formulier container
+        echo "<div class='bg-white rounded-lg shadow-md p-6'>";
         
-        echo "
-            <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-                <div class='md:flex md:items-center md:justify-between mb-6'>
-                    <h1 class='text-2xl font-bold'>{$title}</h1>
-                </div>
-                
-                <div class='bg-white shadow-md rounded-lg p-6'>
-                    <form action='{$action}' method='POST' class='space-y-6'>
-                        " . ($isEdit ? "<input type='hidden' name='id' value='{$budget['id']}'>" : "") . "
-                        
-                        <div>
-                            <label for='category_id' class='block text-sm font-medium text-gray-700'>Categorie</label>
-                            <select id='category_id' name='category_id' required class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
-                                <option value=''>Selecteer categorie</option>";
-        
-        foreach ($categories as $category) {
-            $selected = $categoryIdValue == $category['id'] ? 'selected' : '';
-            echo "<option value='{$category['id']}' {$selected}>" . htmlspecialchars($category['name']) . "</option>";
+        // Toon eventuele fouten
+        if (!empty($errors)) {
+            echo "<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6'>";
+            echo "<p class='font-bold'>Let op</p>";
+            echo "<ul>";
+            
+            foreach ($errors as $error) {
+                echo "<li>" . $error . "</li>";
+            }
+            
+            echo "</ul>";
+            echo "</div>";
         }
         
-        echo "              </select>
-                            " . (!empty($errors['category_id']) ? "<p class='mt-1 text-sm text-red-600'>{$errors['category_id']}</p>" : "") . "
-                        </div>
-                        
-                        <div>
-                            <label for='amount' class='block text-sm font-medium text-gray-700'>Bedrag</label>
-                            <div class='mt-1 relative rounded-md shadow-sm'>
-                                <div class='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                    <span class='text-gray-500 sm:text-sm'>€</span>
-                                </div>
-                                <input type='number' name='amount' id='amount' step='0.01' min='0.01' required
-                                    class='block w-full pl-7 pr-12 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 p-2 border'
-                                    placeholder='0,00'
-                                    value='" . htmlspecialchars($amountValue) . "'>
-                            </div>
-                            " . (!empty($errors['amount']) ? "<p class='mt-1 text-sm text-red-600'>{$errors['amount']}</p>" : "") . "
-                        </div>
-                        
-                        <div>
-                            <label for='period' class='block text-sm font-medium text-gray-700'>Periode</label>
-                            <select id='period' name='period' required class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
-                                <option value='daily' " . ($periodValue === 'daily' ? 'selected' : '') . ">Dagelijks</option>
-                                <option value='weekly' " . ($periodValue === 'weekly' ? 'selected' : '') . ">Wekelijks</option>
-                                <option value='monthly' " . ($periodValue === 'monthly' ? 'selected' : '') . ">Maandelijks</option>
-                                <option value='yearly' " . ($periodValue === 'yearly' ? 'selected' : '') . ">Jaarlijks</option>
-                            </select>
-                            " . (!empty($errors['period']) ? "<p class='mt-1 text-sm text-red-600'>{$errors['period']}</p>" : "") . "
-                        </div>
-                        
-                        <div>
-                            <label for='alert_threshold' class='block text-sm font-medium text-gray-700'>Waarschuwingsdrempel (%)</label>
-                            <input type='number' id='alert_threshold' name='alert_threshold' min='0' max='100' required
-                                class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'
-                                value='" . htmlspecialchars($alertThresholdValue) . "'>
-                            <p class='mt-1 text-xs text-gray-500'>Je krijgt een waarschuwing wanneer het budget dit percentage bereikt</p>
-                            " . (!empty($errors['alert_threshold']) ? "<p class='mt-1 text-sm text-red-600'>{$errors['alert_threshold']}</p>" : "") . "
-                        </div>
-                        
-                        <div class='relative flex items-start'>
-                            <div class='flex items-center h-5'>
-                                <input id='is_active' name='is_active' type='checkbox' 
-                                    class='focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded'
-                                    " . ($isActiveValue ? 'checked' : '') . ">
-                            </div>
-                            <div class='ml-3 text-sm'>
-                                <label for='is_active' class='font-medium text-gray-700'>Actief</label>
-                                <p class='text-gray-500'>Budget wordt meegenomen in berekeningen en overzichten</p>
-                            </div>
-                        </div>
-                        
-                        <div class='flex justify-end space-x-3 mt-6'>
-                            <a href='/budgets' class='py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
-                                Annuleren
-                            </a>
-                            <button type='submit' class='py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
-                                " . ($isEdit ? 'Bijwerken' : 'Opslaan') . "
-                            </button>
-                        </div>
-                    </form>
+        // Formulier
+        echo "<form method='post' action='" . ($isEdit ? "/budgets/update?id=" . $budget['id'] : "/budgets/store") . "' class='space-y-6'>";
+        
+        // Categorie selectie
+        $selectedCategoryId = $oldInput['category_id'] ?? ($isEdit ? $budget['category_id'] : '');
+        echo "
+            <div>
+                <label for='category_id' class='block text-sm font-medium text-gray-700'>Categorie</label>
+                <select id='category_id' name='category_id' required class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                    <option value=''>Selecteer een categorie</option>";
+                    
+        foreach ($categories as $category) {
+            $selected = ($selectedCategoryId == $category['id']) ? 'selected' : '';
+            $categoryName = htmlspecialchars($category['name']);
+            echo "<option value='{$category['id']}' $selected>{$categoryName}</option>";
+        }
+                    
+        echo "
+                </select>
+            </div>";
+        
+        // Bedrag
+        $amount = htmlspecialchars($oldInput['amount'] ?? ($isEdit ? $budget['amount'] : ''));
+        echo "
+            <div>
+                <label for='amount' class='block text-sm font-medium text-gray-700'>Bedrag</label>
+                <div class='mt-1 relative rounded-md shadow-sm'>
+                    <div class='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                        <span class='text-gray-500 sm:text-sm'>€</span>
+                    </div>
+                    <input type='number' id='amount' name='amount' min='0.01' step='0.01' value='" . $amount . "' required class='pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
                 </div>
-            </div>
-        </body>
-        </html>
-        ";
+            </div>";
+        
+        // Periode (start en einddatum)
+        $startDate = $oldInput['start_date'] ?? ($isEdit ? $budget['start_date'] : date('Y-m-01')); // Eerste dag van de maand
+        $endDate = $oldInput['end_date'] ?? ($isEdit ? $budget['end_date'] : date('Y-m-t')); // Laatste dag van de maand
+        
+        echo "
+            <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                <div>
+                    <label for='start_date' class='block text-sm font-medium text-gray-700'>Startdatum</label>
+                    <input type='date' id='start_date' name='start_date' value='" . $startDate . "' required class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                </div>
+                <div>
+                    <label for='end_date' class='block text-sm font-medium text-gray-700'>Einddatum</label>
+                    <input type='date' id='end_date' name='end_date' value='" . $endDate . "' required class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border'>
+                </div>
+            </div>";
+        
+        // Knoppen
+        echo "
+            <div class='flex justify-end space-x-3 pt-4'>
+                <a href='/budgets' class='inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                    Annuleren
+                </a>
+                <button type='submit' class='inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                    " . ($isEdit ? 'Bijwerken' : 'Aanmaken') . "
+                </button>
+            </div>";
+        
+        // Formulier einde
+        echo "</form>";
+        
+        // Container einde
+        echo "</div>";
+        
+        // JavaScript voor datumvalidatie
+        echo "
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDateInput = document.getElementById('start_date');
+            const endDateInput = document.getElementById('end_date');
+            
+            // Valideer einddatum als die verandert
+            endDateInput.addEventListener('change', function() {
+                const startDate = new Date(startDateInput.value);
+                const endDate = new Date(this.value);
+                
+                if (endDate < startDate) {
+                    alert('De einddatum moet na de startdatum liggen');
+                    this.value = '';
+                }
+            });
+            
+            // Valideer ook de startdatum
+            startDateInput.addEventListener('change', function() {
+                const startDate = new Date(this.value);
+                const endDate = new Date(endDateInput.value);
+                
+                if (endDateInput.value && endDate < startDate) {
+                    alert('De startdatum moet voor de einddatum liggen');
+                    this.value = '';
+                }
+            });
+        });
+        </script>";
+        
+        echo "</div>";
     }
 }

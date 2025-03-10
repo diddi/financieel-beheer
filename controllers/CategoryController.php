@@ -2,25 +2,122 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Controller;
 use App\Models\Category;
 
-class CategoryController {
+class CategoryController extends Controller {
     
     public function index() {
-        // Controleer of gebruiker is ingelogd
-        if (!Auth::check()) {
-            header('Location: /login');
-            exit;
-        }
-        
-        $userId = Auth::id();
+        $userId = $this->requireLogin();
         
         // Haal categorieën op
         $expenseCategories = Category::getAllByUserAndType($userId, 'expense');
         $incomeCategories = Category::getAllByUserAndType($userId, 'income');
         
-        // Geef de view weer
-        $this->renderCategoriesList($expenseCategories, $incomeCategories);
+        // Render de pagina
+        $render = $this->startBuffering('Categorieën');
+        
+        // Begin HTML output
+        echo "<div class='max-w-7xl mx-auto'>";
+        
+        // Header sectie
+        echo "
+            <div class='flex justify-between items-center mb-6'>
+                <h1 class='text-2xl font-bold'>Categorieën</h1>
+                <a href='/categories/create' class='inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+                    <i class='material-icons mr-1 text-sm'>add</i> Nieuwe categorie
+                </a>
+            </div>";
+        
+        // Uitgaven categorieën
+        echo "
+            <div class='mb-8'>
+                <div class='flex items-center mb-4'>
+                    <h2 class='text-xl font-semibold'>Uitgaven categorieën</h2>
+                    <span class='ml-2 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-full'>" . count($expenseCategories) . "</span>
+                </div>";
+        
+        if (empty($expenseCategories)) {
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-6 text-center'>
+                    <p class='text-gray-500'>Geen uitgaven categorieën gevonden.</p>
+                    <a href='/categories/create?type=expense' class='mt-4 inline-block text-blue-600 hover:text-blue-800'>Voeg een uitgaven categorie toe</a>
+                </div>";
+        } else {
+            echo "<div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>";
+            
+            foreach ($expenseCategories as $category) {
+                echo "
+                    <div class='bg-white rounded-lg shadow-md p-4 flex justify-between items-center'>
+                        <div class='flex items-center'>
+                            <div class='w-8 h-8 rounded-full flex items-center justify-center' style='background-color: " . $category['color'] . "20'>
+                                <i class='material-icons text-sm' style='color: " . $category['color'] . "'>" . ($category['icon'] ?? 'category') . "</i>
+                            </div>
+                            <span class='ml-3 font-medium'>" . htmlspecialchars($category['name']) . "</span>
+                        </div>
+                        <div class='flex space-x-2'>
+                            <a href='/categories/edit?id=" . $category['id'] . "' class='text-blue-600 hover:text-blue-800'>
+                                <i class='material-icons text-sm'>edit</i>
+                            </a>
+                            <a href='/categories/delete?id=" . $category['id'] . "' onclick='return confirm(\"Weet je zeker dat je deze categorie wilt verwijderen?\")' class='text-red-600 hover:text-red-800'>
+                                <i class='material-icons text-sm'>delete</i>
+                            </a>
+                        </div>
+                    </div>";
+            }
+            
+            echo "</div>";
+        }
+        
+        echo "</div>";
+        
+        // Inkomsten categorieën
+        echo "
+            <div>
+                <div class='flex items-center mb-4'>
+                    <h2 class='text-xl font-semibold'>Inkomsten categorieën</h2>
+                    <span class='ml-2 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-full'>" . count($incomeCategories) . "</span>
+                </div>";
+        
+        if (empty($incomeCategories)) {
+            echo "
+                <div class='bg-white rounded-lg shadow-md p-6 text-center'>
+                    <p class='text-gray-500'>Geen inkomsten categorieën gevonden.</p>
+                    <a href='/categories/create?type=income' class='mt-4 inline-block text-blue-600 hover:text-blue-800'>Voeg een inkomsten categorie toe</a>
+                </div>";
+        } else {
+            echo "<div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>";
+            
+            foreach ($incomeCategories as $category) {
+                echo "
+                    <div class='bg-white rounded-lg shadow-md p-4 flex justify-between items-center'>
+                        <div class='flex items-center'>
+                            <div class='w-8 h-8 rounded-full flex items-center justify-center' style='background-color: " . $category['color'] . "20'>
+                                <i class='material-icons text-sm' style='color: " . $category['color'] . "'>" . ($category['icon'] ?? 'category') . "</i>
+                            </div>
+                            <span class='ml-3 font-medium'>" . htmlspecialchars($category['name']) . "</span>
+                        </div>
+                        <div class='flex space-x-2'>
+                            <a href='/categories/edit?id=" . $category['id'] . "' class='text-blue-600 hover:text-blue-800'>
+                                <i class='material-icons text-sm'>edit</i>
+                            </a>
+                            <a href='/categories/delete?id=" . $category['id'] . "' onclick='return confirm(\"Weet je zeker dat je deze categorie wilt verwijderen?\")' class='text-red-600 hover:text-red-800'>
+                                <i class='material-icons text-sm'>delete</i>
+                            </a>
+                        </div>
+                    </div>";
+            }
+            
+            echo "</div>";
+        }
+        
+        echo "</div>";
+        
+        // Einde content div
+        echo "</div>";
+        
+        // Render de pagina
+        $render();
     }
     
     public function create() {
