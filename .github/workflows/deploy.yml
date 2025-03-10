@@ -16,56 +16,57 @@ jobs:
     
     - name: Prepare files for deployment
       run: |
-        # Script om de structuur aan te passen voor deployment
-        mkdir -p deploy_tmp
+        # Script om de structuur aan te passen voor deployment volgens de verwachte structuur
+        mkdir -p deploy_structure
+        mkdir -p deploy_structure/public_html
         
-        # Kopieer alle bestanden behalve public/ naar de deploy_tmp map
-        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_tmp/
+        # Kopieer alleen public files naar public_html
+        cp -r public/* deploy_structure/public_html/
         
-        # Kopieer inhoud van public/ naar de root van deploy_tmp
-        cp -r public/* deploy_tmp/
+        # Kopieer de rest van de bestanden (behalve public) naar de root
+        cp -r api controllers core cron database helpers models services views vendor autoload.php composer.json composer.lock config setup.php setup_demo.php deploy_structure/
         
         # Maak database.php bestand
-        mkdir -p deploy_tmp/config
-        echo '<?php' > deploy_tmp/config/database.php
-        echo '// Database configuratie' >> deploy_tmp/config/database.php
-        echo 'return [' >> deploy_tmp/config/database.php
-        echo "    'host' => 'localhost'," >> deploy_tmp/config/database.php
-        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_tmp/config/database.php
-        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_tmp/config/database.php
-        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_tmp/config/database.php
-        echo "    'port' => 3306," >> deploy_tmp/config/database.php
-        echo "    'charset' => 'utf8mb4'," >> deploy_tmp/config/database.php
-        echo "    'options' => [" >> deploy_tmp/config/database.php
-        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_tmp/config/database.php
-        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_tmp/config/database.php
-        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_tmp/config/database.php
-        echo "    ]" >> deploy_tmp/config/database.php
-        echo "];" >> deploy_tmp/config/database.php
+        mkdir -p deploy_structure/config
+        echo '<?php' > deploy_structure/config/database.php
+        echo '// Database configuratie' >> deploy_structure/config/database.php
+        echo 'return [' >> deploy_structure/config/database.php
+        echo "    'host' => 'localhost'," >> deploy_structure/config/database.php
+        echo "    'username' => 'db_gebruiker', // Wijzig naar je database gebruiker" >> deploy_structure/config/database.php
+        echo "    'password' => 'db_wachtwoord', // Wijzig naar je database wachtwoord" >> deploy_structure/config/database.php
+        echo "    'database' => 'db_naam', // Wijzig naar je database naam" >> deploy_structure/config/database.php
+        echo "    'port' => 3306," >> deploy_structure/config/database.php
+        echo "    'charset' => 'utf8mb4'," >> deploy_structure/config/database.php
+        echo "    'options' => [" >> deploy_structure/config/database.php
+        echo "        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION," >> deploy_structure/config/database.php
+        echo "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC," >> deploy_structure/config/database.php
+        echo "        PDO::ATTR_EMULATE_PREPARES => false," >> deploy_structure/config/database.php
+        echo "    ]" >> deploy_structure/config/database.php
+        echo "];" >> deploy_structure/config/database.php
         
-        # Maak info.php bestand voor debugging
-        echo '<?php' > deploy_tmp/info.php
-        echo '// Debug informatie' >> deploy_tmp/info.php
-        echo "echo '<h1>PHP Info</h1>';" >> deploy_tmp/info.php
-        echo "echo '<h2>PHP Versie</h2>';" >> deploy_tmp/info.php
-        echo "echo phpversion();" >> deploy_tmp/info.php
-        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_tmp/info.php
-        echo "echo '<pre>';" >> deploy_tmp/info.php
-        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_tmp/info.php
-        echo "echo '</pre>';" >> deploy_tmp/info.php
-        echo "phpinfo();" >> deploy_tmp/info.php
+        # Maak info.php bestand voor debugging in public_html
+        echo '<?php' > deploy_structure/public_html/info.php
+        echo '// Debug informatie' >> deploy_structure/public_html/info.php
+        echo "echo '<h1>PHP Info</h1>';" >> deploy_structure/public_html/info.php
+        echo "echo '<h2>PHP Versie</h2>';" >> deploy_structure/public_html/info.php
+        echo "echo phpversion();" >> deploy_structure/public_html/info.php
+        echo "echo '<h2>Bestanden en mappen controle</h2>';" >> deploy_structure/public_html/info.php
+        echo "echo '<pre>';" >> deploy_structure/public_html/info.php
+        echo "echo 'Autoload bestand aanwezig: ' . (file_exists(__DIR__ . '/../autoload.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Core map aanwezig: ' . (is_dir(__DIR__ . '/../core') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Controllers map aanwezig: ' . (is_dir(__DIR__ . '/../controllers') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Models map aanwezig: ' . (is_dir(__DIR__ . '/../models') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Views map aanwezig: ' . (is_dir(__DIR__ . '/../views') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Config map aanwezig: ' . (is_dir(__DIR__ . '/../config') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo 'Database configuratie aanwezig: ' . (file_exists(__DIR__ . '/../config/database.php') ? 'JA' : 'NEE') . PHP_EOL;" >> deploy_structure/public_html/info.php
+        echo "echo '</pre>';" >> deploy_structure/public_html/info.php
+        echo "phpinfo();" >> deploy_structure/public_html/info.php
         
         # Toon de uiteindelijke structuur
-        echo "Inhoud van deploy_tmp:"
-        ls -la deploy_tmp/
-        echo "Inhoud van deploy_tmp/config:"
-        ls -la deploy_tmp/config/
+        echo "Inhoud van deploy_structure/:"
+        ls -la deploy_structure/
+        echo "Inhoud van deploy_structure/public_html/:"
+        ls -la deploy_structure/public_html/
     
     - name: FTP Deploy Full Structure
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -74,7 +75,7 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /
-        local-dir: ./deploy_tmp/
+        local-dir: ./deploy_structure/
         exclude: |
           **/.git*
           **/.git*/**
@@ -90,4 +91,4 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
-# 4. Deze workflow uploadt je volledige applicatie met de juiste structuur!
+# 4. Deze workflow uploadt je applicatie met de juiste mapstructuur!
