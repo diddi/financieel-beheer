@@ -1,0 +1,40 @@
+name: Deploy Website
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: FTP Deploy
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: /public_html/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          config/database.php
+          .env
+          README.md
+          .DS_Store
+
+# Hoe te gebruiken:
+# 1. Ga naar je GitHub repository
+# 2. Klik op Settings > Secrets and variables > Actions
+# 3. Voeg de volgende repository secrets toe:
+#    - FTP_SERVER: ftp.jouw-domein.nl
+#    - FTP_USERNAME: jouw-ftp-gebruikersnaam
+#    - FTP_PASSWORD: jouw-ftp-wachtwoord
+# 4. Nu zal je website automatisch gedeployed worden naar je hosting wanneer je wijzigingen naar de main branch pusht! 
