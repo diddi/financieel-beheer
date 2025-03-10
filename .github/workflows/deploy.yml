@@ -34,7 +34,7 @@ jobs:
 # 1. Ga naar je GitHub repository
 # 2. Klik op Settings > Secrets and variables > Actions
 # 3. Voeg de volgende repository secrets toe:
-#    - FTP_SERVER: ftp.jouw-domein.nl
+#    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
 # 4. Nu zal je website automatisch gedeployed worden naar je hosting wanneer je wijzigingen naar de main branch pusht! 
