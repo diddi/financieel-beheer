@@ -260,11 +260,19 @@ jobs:
             echo '<h2>Stack Trace:</h2>';
             echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
             
-            // Toon informatie over de bestanden en mappen
+            // Toon informatie over de bestanden en mappen zonder system()
             echo '<h2>Diagnostische informatie:</h2>';
             echo '<h3>Directorystructuur:</h3>';
             echo '<pre>';
-            system('ls -la ' . ROOT_PATH . ' 2>&1');
+            // Gebruik scandir in plaats van system
+            $files = scandir(ROOT_PATH);
+            foreach ($files as $file) {
+                if ($file != '.' && $file != '..') {
+                    $is_dir = is_dir(ROOT_PATH . '/' . $file) ? 'D' : 'F';
+                    $size = filesize(ROOT_PATH . '/' . $file);
+                    echo "$is_dir\t$size\t$file\n";
+                }
+            }
             echo '</pre>';
             
             echo '<h3>Autoloader inhoud:</h3>';
@@ -273,6 +281,20 @@ jobs:
                 highlight_file(ROOT_PATH . '/autoload.php');
             } else {
                 echo "Autoload bestand niet gevonden!";
+            }
+            echo '</pre>';
+            
+            // Extra diagnostische informatie
+            echo '<h3>Namespace testen:</h3>';
+            echo '<pre>';
+            $paths = [
+                'core/Router.php',
+                'controllers/AuthController.php',
+                'models/User.php'
+            ];
+            
+            foreach ($paths as $path) {
+                echo "Pad $path: " . (file_exists(ROOT_PATH . '/' . $path) ? 'Bestaat' : 'Bestaat NIET') . "\n";
             }
             echo '</pre>';
             
@@ -312,32 +334,44 @@ jobs:
         
         echo "<h2>Bestandsstructuur:</h2>";
         echo "<pre>";
-        system('ls -la ' . ROOT_PATH);
+        // Gebruik scandir in plaats van system
+        $files = scandir(ROOT_PATH);
+        foreach ($files as $file) {
+            if ($file != '.' && $file != '..') {
+                $is_dir = is_dir(ROOT_PATH . '/' . $file) ? 'D' : 'F';
+                $size = filesize(ROOT_PATH . '/' . $file);
+                echo "$is_dir\t$size\t$file\n";
+            }
+        }
         echo "</pre>";
         
         echo "<h2>Autoloader Test:</h2>";
         try {
             echo "Autoloader laden... ";
-            require_once ROOT_PATH . '/autoload.php';
-            echo "OK\n";
-            
-            echo "\nControleren of core classes bestaan:\n";
-            $classes = [
-                '\\App\\Core\\Router',
-                '\\App\\Core\\Session',
-                '\\App\\Core\\Auth',
-                '\\App\\Core\\Database',
-                '\\App\\Controllers\\AuthController',
-                '\\App\\Controllers\\DashboardController'
-            ];
-            
-            foreach ($classes as $class) {
-                echo "Class $class: ";
-                if (class_exists($class)) {
-                    echo "Gevonden!\n";
-                } else {
-                    echo "NIET GEVONDEN\n";
+            if (file_exists(ROOT_PATH . '/autoload.php')) {
+                require_once ROOT_PATH . '/autoload.php';
+                echo "OK\n";
+                
+                echo "\nControleren of core classes bestaan:\n";
+                $classes = [
+                    '\\App\\Core\\Router',
+                    '\\App\\Core\\Session',
+                    '\\App\\Core\\Auth',
+                    '\\App\\Core\\Database',
+                    '\\App\\Controllers\\AuthController',
+                    '\\App\\Controllers\\DashboardController'
+                ];
+                
+                foreach ($classes as $class) {
+                    echo "Class $class: ";
+                    if (class_exists($class)) {
+                        echo "Gevonden!\n";
+                    } else {
+                        echo "NIET GEVONDEN\n";
+                    }
                 }
+            } else {
+                echo "FOUT: autoload.php niet gevonden in " . ROOT_PATH;
             }
         } catch (Exception $e) {
             echo "FOUT: " . $e->getMessage();
@@ -345,9 +379,34 @@ jobs:
         
         echo "</pre>";
         
+        echo "<h2>Inhoud van autoload.php:</h2>";
+        echo "<pre>";
+        if (file_exists(ROOT_PATH . '/autoload.php')) {
+            highlight_file(ROOT_PATH . '/autoload.php');
+        } else {
+            echo "Bestand niet gevonden!";
+        }
+        echo "</pre>";
+        
         echo "<h2>PHP Modules:</h2>";
         echo "<pre>";
         print_r(get_loaded_extensions());
+        echo "</pre>";
+        
+        // Toon een map van namespaces die worden verwacht
+        echo "<h2>Pad testen voor namespaces:</h2>";
+        echo "<pre>";
+        $namespaces = [
+            'App\\Core\\Router' => 'core/Router.php',
+            'App\\Core\\Session' => 'core/Session.php',
+            'App\\Controllers\\AuthController' => 'controllers/AuthController.php'
+        ];
+        
+        foreach ($namespaces as $namespace => $path) {
+            echo "Namespace: $namespace\n";
+            echo "Verwacht pad: " . ROOT_PATH . '/' . $path . "\n";
+            echo "Bestaat: " . (file_exists(ROOT_PATH . '/' . $path) ? 'JA' : 'NEE') . "\n\n";
+        }
         echo "</pre>";
         EOL
         
