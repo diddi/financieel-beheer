@@ -268,6 +268,17 @@ class AuthController extends Controller {
         // Haal gebruikersgegevens op
         $user = Auth::user();
         
+        // Controleer of gebruikersgegevens geldig zijn
+        if (!$user || !is_array($user)) {
+            // Log de fout voor debugging
+            error_log('Fout bij ophalen gebruikersprofiel: gebruikersgegevens niet beschikbaar');
+            
+            // Toon een foutmelding aan de gebruiker
+            Session::set('auth_error', 'Er is een probleem opgetreden bij het ophalen van je profielgegevens. Probeer opnieuw in te loggen.');
+            header('Location: /logout');
+            exit;
+        }
+        
         // Start output buffering
         ob_start();
         
@@ -277,18 +288,45 @@ class AuthController extends Controller {
             <div class="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h1 class="text-2xl font-bold mb-6">Mijn Profiel</h1>
                 
+                <?php if (Session::has('profile_success')): ?>
+                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+                        <p><?= Session::get('profile_success') ?></p>
+                    </div>
+                    <?php Session::forget('profile_success'); ?>
+                <?php endif; ?>
+                
+                <?php if (Session::has('password_success')): ?>
+                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+                        <p><?= Session::get('password_success') ?></p>
+                    </div>
+                    <?php Session::forget('password_success'); ?>
+                <?php endif; ?>
+                
                 <!-- Profiel bijwerken formulier -->
                 <div class="mb-8">
                     <h2 class="text-xl font-semibold mb-4">Profiel bijwerken</h2>
                     
+                    <?php if (Session::has('profile_errors') && isset(Session::get('profile_errors')['general'])): ?>
+                        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+                            <p><?= Session::get('profile_errors')['general'] ?></p>
+                        </div>
+                        <?php Session::forget('profile_errors'); ?>
+                    <?php endif; ?>
+                    
                     <form method="post" action="/profile/update" class="space-y-4">
                         <div>
                             <label for="username" class="block text-sm font-medium text-gray-700">Gebruikersnaam</label>
-                            <input type="text" id="username" name="username" value="<?= htmlspecialchars($user['username']) ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <input type="text" id="username" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <?php if (Session::has('profile_errors') && isset(Session::get('profile_errors')['username'])): ?>
+                                <p class="mt-1 text-sm text-red-600"><?= Session::get('profile_errors')['username'] ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700">E-mailadres</label>
-                            <input type="email" id="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <input type="email" id="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <?php if (Session::has('profile_errors') && isset(Session::get('profile_errors')['email'])): ?>
+                                <p class="mt-1 text-sm text-red-600"><?= Session::get('profile_errors')['email'] ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -302,18 +340,34 @@ class AuthController extends Controller {
                 <div>
                     <h2 class="text-xl font-semibold mb-4">Wachtwoord wijzigen</h2>
                     
+                    <?php if (Session::has('password_errors') && isset(Session::get('password_errors')['general'])): ?>
+                        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+                            <p><?= Session::get('password_errors')['general'] ?></p>
+                        </div>
+                        <?php Session::forget('password_errors'); ?>
+                    <?php endif; ?>
+                    
                     <form method="post" action="/profile/change-password" class="space-y-4">
                         <div>
                             <label for="current_password" class="block text-sm font-medium text-gray-700">Huidig wachtwoord</label>
                             <input type="password" id="current_password" name="current_password" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <?php if (Session::has('password_errors') && isset(Session::get('password_errors')['current_password'])): ?>
+                                <p class="mt-1 text-sm text-red-600"><?= Session::get('password_errors')['current_password'] ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <label for="new_password" class="block text-sm font-medium text-gray-700">Nieuw wachtwoord</label>
                             <input type="password" id="new_password" name="new_password" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <?php if (Session::has('password_errors') && isset(Session::get('password_errors')['new_password'])): ?>
+                                <p class="mt-1 text-sm text-red-600"><?= Session::get('password_errors')['new_password'] ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <label for="confirm_password" class="block text-sm font-medium text-gray-700">Bevestig nieuw wachtwoord</label>
                             <input type="password" id="confirm_password" name="confirm_password" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <?php if (Session::has('password_errors') && isset(Session::get('password_errors')['confirm_password'])): ?>
+                                <p class="mt-1 text-sm text-red-600"><?= Session::get('password_errors')['confirm_password'] ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -350,6 +404,16 @@ class AuthController extends Controller {
         }
         
         $userId = Auth::id();
+        if (!$userId) {
+            // Log de fout voor debugging
+            error_log('Fout bij profiel bijwerken: gebruikers-ID niet beschikbaar');
+            
+            // Toon een foutmelding aan de gebruiker
+            Session::set('auth_error', 'Er is een probleem opgetreden bij het ophalen van je gebruikersgegevens. Probeer opnieuw in te loggen.');
+            header('Location: /logout');
+            exit;
+        }
+        
         $username = $_POST['username'] ?? '';
         $email = $_POST['email'] ?? '';
         $errors = [];
@@ -385,14 +449,22 @@ class AuthController extends Controller {
             exit;
         }
         
-        // Update gebruikersgegevens
-        User::update($userId, [
-            'username' => $username,
-            'email' => $email
-        ]);
-        
-        // Succesbericht instellen
-        Session::set('profile_success', 'Je profiel is bijgewerkt');
+        // Probeer gebruikersgegevens bij te werken
+        try {
+            User::update($userId, [
+                'username' => $username,
+                'email' => $email
+            ]);
+            
+            // Succesbericht instellen
+            Session::set('profile_success', 'Je profiel is bijgewerkt');
+        } catch (\Exception $e) {
+            // Log de fout voor debugging
+            error_log('Fout bij profiel bijwerken: ' . $e->getMessage());
+            
+            // Stel foutbericht in
+            Session::set('profile_errors', ['general' => 'Er is een fout opgetreden bij het bijwerken van je profiel']);
+        }
         
         // Redirect terug naar profiel
         header('Location: /profile');
@@ -416,6 +488,16 @@ class AuthController extends Controller {
         }
         
         $userId = Auth::id();
+        if (!$userId) {
+            // Log de fout voor debugging
+            error_log('Fout bij wachtwoord wijzigen: gebruikers-ID niet beschikbaar');
+            
+            // Toon een foutmelding aan de gebruiker
+            Session::set('auth_error', 'Er is een probleem opgetreden bij het ophalen van je gebruikersgegevens. Probeer opnieuw in te loggen.');
+            header('Location: /logout');
+            exit;
+        }
+        
         $currentPassword = $_POST['current_password'] ?? '';
         $newPassword = $_POST['new_password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
@@ -438,6 +520,18 @@ class AuthController extends Controller {
         
         // Controleer of het huidige wachtwoord correct is
         $user = Auth::user();
+        
+        // Controleer of gebruikersgegevens geldig zijn
+        if (!$user || !is_array($user) || !isset($user['password'])) {
+            // Log de fout voor debugging
+            error_log('Fout bij wachtwoord wijzigen: gebruikersgegevens niet beschikbaar');
+            
+            // Toon een foutmelding aan de gebruiker
+            Session::set('auth_error', 'Er is een probleem opgetreden bij het ophalen van je profielgegevens. Probeer opnieuw in te loggen.');
+            header('Location: /logout');
+            exit;
+        }
+        
         if (!password_verify($currentPassword, $user['password'])) {
             $errors['current_password'] = 'Huidig wachtwoord is onjuist';
         }
@@ -450,12 +544,20 @@ class AuthController extends Controller {
         }
         
         // Update wachtwoord
-        User::update($userId, [
-            'password' => password_hash($newPassword, PASSWORD_DEFAULT)
-        ]);
-        
-        // Succesbericht instellen
-        Session::set('password_success', 'Je wachtwoord is gewijzigd');
+        try {
+            User::update($userId, [
+                'password' => password_hash($newPassword, PASSWORD_DEFAULT)
+            ]);
+            
+            // Succesbericht instellen
+            Session::set('password_success', 'Je wachtwoord is gewijzigd');
+        } catch (\Exception $e) {
+            // Log de fout voor debugging
+            error_log('Fout bij wachtwoord wijzigen: ' . $e->getMessage());
+            
+            // Stel foutbericht in
+            Session::set('password_errors', ['general' => 'Er is een fout opgetreden bij het wijzigen van je wachtwoord']);
+        }
         
         // Redirect terug naar profiel
         header('Location: /profile');

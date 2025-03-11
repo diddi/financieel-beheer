@@ -11,6 +11,7 @@
 // Gebruik deze variabelen voor de app layout
 $pageTitle = $_pageTitle ?? 'Dashboard';
 $content = $_content ?? '';
+$authError = $_authError ?? '';
 
 // Include de app layout
 require_once(dirname(__FILE__) . '/app.php'); 

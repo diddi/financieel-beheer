@@ -5,7 +5,12 @@
 
 // Controleer of de gebruiker is ingelogd
 use App\Core\Auth;
-if (!Auth::check() && basename($_SERVER['REQUEST_URI']) !== 'login' && basename($_SERVER['REQUEST_URI']) !== 'register') {
+
+// Verbeterde redirectlogica om oneindige redirects te voorkomen
+$currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$authPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+if (!Auth::check() && !in_array($currentPath, $authPaths)) {
     header('Location: /login');
     exit;
 }
@@ -105,21 +110,30 @@ $pageTitle = $pageTitle ?? 'Dashboard';
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <!-- Include Sidebar -->
-    <?php 
-    // Bepaal het absolute pad naar de views directory
-    $rootPath = defined('ROOT_PATH') ? ROOT_PATH : dirname(dirname(__DIR__));
-    include_once($rootPath . '/views/components/sidebar.php'); 
-    ?>
-    
-    <div class="md:ml-64 min-h-screen flex flex-col">
-        <!-- Include Header -->
-        <?php include_once($rootPath . '/views/components/header.php'); ?>
+<body class="antialiased bg-gray-100 text-gray-900">
+    <div class="min-h-screen flex flex-col">
         
-        <!-- Main Content -->
-        <main class="flex-grow p-4 md:p-8">
-            <div class="max-w-7xl mx-auto">
+        <?php 
+        // Include de navigatie balk
+        include_once(dirname(__DIR__) . '/components/navigation.php'); 
+        ?>
+        
+        <?php if (!empty($authError)): ?>
+        <div class="w-full bg-red-600 p-4 text-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="h-6 w-6 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span><?= htmlspecialchars($authError) ?></span>
+                </div>
+                <a href="/login" class="bg-white text-red-600 hover:bg-red-50 px-4 py-2 rounded text-sm font-medium">Opnieuw inloggen</a>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <main class="flex-1">
+            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                 <?php if (isset($content)): ?>
                     <?= $content ?>
                 <?php else: ?>
