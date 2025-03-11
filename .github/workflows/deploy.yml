@@ -101,108 +101,258 @@ jobs:
         echo "Stap 5: Index.php maken"
         cat > deploy_all/index.php << 'EOL'
         <?php
+        // Foutrapportage inschakelen voor debugging
+        ini_set('display_errors', 1);
+        error_reporting(E_ALL);
+        
+        // Log fouten ook naar een bestand
+        ini_set('log_errors', 1);
+        ini_set('error_log', __DIR__ . '/error_log.txt');
+        
         // Definieer het pad naar de applicatie
         define('ROOT_PATH', __DIR__);
         
-        // Laad de autoloader
-        require_once ROOT_PATH . '/autoload.php';
+        try {
+            // Log dat we de autoloader gaan laden
+            error_log("Start: Autoloader laden");
+            
+            // Controleer of autoload.php bestaat
+            if (!file_exists(ROOT_PATH . '/autoload.php')) {
+                throw new Exception("Autoload bestand niet gevonden!");
+            }
+            
+            // Laad de autoloader
+            require_once ROOT_PATH . '/autoload.php';
+            
+            error_log("Autoloader succesvol geladen");
+            
+            // Controleer of hoofdklassen bestaan
+            if (!class_exists('\\App\\Core\\Router')) {
+                throw new Exception("Router class niet gevonden!");
+            }
+            
+            if (!class_exists('\\App\\Core\\Session')) {
+                throw new Exception("Session class niet gevonden!");
+            }
+            
+            // Gebruik de namespace
+            use App\Core\Router;
+            use App\Core\Session;
+            
+            error_log("Core classes succesvol geladen");
+            
+            // Start sessie
+            Session::start();
+            
+            error_log("Sessie gestart");
+            
+            // Maak router-instantie
+            $router = new Router();
+            
+            error_log("Router aangemaakt");
+            
+            // Definieer routes
+            // Authentication routes
+            $router->register('/', ['controller' => 'DashboardController', 'action' => 'index']);
+            $router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
+            $router->register('/register', ['controller' => 'AuthController', 'action' => 'register']);
+            $router->register('/logout', ['controller' => 'AuthController', 'action' => 'logout']);
+            $router->register('/profile', ['controller' => 'AuthController', 'action' => 'profile']);
+            $router->register('/profile/update', ['controller' => 'AuthController', 'action' => 'updateProfile'], 'POST');
+            $router->register('/profile/change-password', ['controller' => 'AuthController', 'action' => 'changePassword'], 'POST');
+            $router->register('/forgot-password', ['controller' => 'AuthController', 'action' => 'forgotPassword']);
+            $router->register('/reset-password', ['controller' => 'AuthController', 'action' => 'resetPassword'], 'POST');
+            
+            // Rest van de routes (hetzelfde als voorheen)
+            // Transaction routes
+            $router->register('/transactions', ['controller' => 'TransactionController', 'action' => 'index']);
+            $router->register('/transactions/create', ['controller' => 'TransactionController', 'action' => 'create']);
+            $router->register('/transactions/store', ['controller' => 'TransactionController', 'action' => 'store'], 'POST');
+            $router->register('/transactions/edit', ['controller' => 'TransactionController', 'action' => 'edit']);
+            $router->register('/transactions/update', ['controller' => 'TransactionController', 'action' => 'update'], 'POST');
+            $router->register('/transactions/delete', ['controller' => 'TransactionController', 'action' => 'delete']);
+            
+            // Account routes
+            $router->register('/accounts', ['controller' => 'AccountController', 'action' => 'index']);
+            $router->register('/accounts/create', ['controller' => 'AccountController', 'action' => 'create']);
+            $router->register('/accounts/store', ['controller' => 'AccountController', 'action' => 'store'], 'POST');
+            $router->register('/accounts/edit', ['controller' => 'AccountController', 'action' => 'edit']);
+            $router->register('/accounts/update', ['controller' => 'AccountController', 'action' => 'update'], 'POST');
+            $router->register('/accounts/delete', ['controller' => 'AccountController', 'action' => 'delete']);
+            
+            // Category routes
+            $router->register('/categories', ['controller' => 'CategoryController', 'action' => 'index']);
+            $router->register('/categories/create', ['controller' => 'CategoryController', 'action' => 'create']);
+            $router->register('/categories/store', ['controller' => 'CategoryController', 'action' => 'store'], 'POST');
+            $router->register('/categories/edit', ['controller' => 'CategoryController', 'action' => 'edit']);
+            $router->register('/categories/update', ['controller' => 'CategoryController', 'action' => 'update'], 'POST');
+            $router->register('/categories/delete', ['controller' => 'CategoryController', 'action' => 'delete']);
+            
+            // Budget routes
+            $router->register('/budgets', ['controller' => 'BudgetController', 'action' => 'index']);
+            $router->register('/budgets/create', ['controller' => 'BudgetController', 'action' => 'create']);
+            $router->register('/budgets/store', ['controller' => 'BudgetController', 'action' => 'store'], 'POST');
+            $router->register('/budgets/edit', ['controller' => 'BudgetController', 'action' => 'edit']);
+            $router->register('/budgets/update', ['controller' => 'BudgetController', 'action' => 'update'], 'POST');
+            $router->register('/budgets/delete', ['controller' => 'BudgetController', 'action' => 'delete']);
+            
+            // Report routes
+            $router->register('/reports', ['controller' => 'ReportController', 'action' => 'index']);
+            $router->register('/reports/category', ['controller' => 'ReportController', 'action' => 'categoryDetail']);
+            
+            // Savings routes
+            $router->register('/savings', ['controller' => 'SavingsController', 'action' => 'index']);
+            $router->register('/savings/create', ['controller' => 'SavingsController', 'action' => 'create']);
+            $router->register('/savings/store', ['controller' => 'SavingsController', 'action' => 'store'], 'POST');
+            $router->register('/savings/show', ['controller' => 'SavingsController', 'action' => 'show']);
+            $router->register('/savings/edit', ['controller' => 'SavingsController', 'action' => 'edit']);
+            $router->register('/savings/update', ['controller' => 'SavingsController', 'action' => 'update'], 'POST');
+            $router->register('/savings/delete', ['controller' => 'SavingsController', 'action' => 'delete']);
+            $router->register('/savings/add-contribution', ['controller' => 'SavingsController', 'action' => 'addContribution'], 'POST');
+            $router->register('/savings/remove-contribution', ['controller' => 'SavingsController', 'action' => 'removeContribution']);
+            
+            // Export routes
+            $router->register('/export', ['controller' => 'ExportController', 'action' => 'index']);
+            $router->register('/export/transactions', ['controller' => 'ExportController', 'action' => 'exportTransactions'], 'POST');
+            $router->register('/export/budgets', ['controller' => 'ExportController', 'action' => 'exportBudgets'], 'POST');
+            $router->register('/export/accounts', ['controller' => 'ExportController', 'action' => 'exportAccounts'], 'POST');
+            $router->register('/export/download', ['controller' => 'ExportController', 'action' => 'download']);
+            
+            // Notification routes
+            $router->register('/notifications', ['controller' => 'NotificationController', 'action' => 'index']);
+            $router->register('/notifications/mark-read', ['controller' => 'NotificationController', 'action' => 'markAsRead'], 'POST');
+            $router->register('/notifications/mark-all-read', ['controller' => 'NotificationController', 'action' => 'markAllAsRead'], 'POST');
+            $router->register('/notifications/count', ['controller' => 'NotificationController', 'action' => 'getUnreadCount']);
+            
+            // Recurring transaction routes
+            $router->register('/recurring', ['controller' => 'RecurringTransactionController', 'action' => 'index']);
+            $router->register('/recurring/create', ['controller' => 'RecurringTransactionController', 'action' => 'create']);
+            $router->register('/recurring/store', ['controller' => 'RecurringTransactionController', 'action' => 'store'], 'POST');
+            $router->register('/recurring/edit', ['controller' => 'RecurringTransactionController', 'action' => 'edit']);
+            $router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
+            $router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
+            
+            error_log("Routes geregistreerd");
+            
+            // Log de huidige URL
+            error_log("Huidige URL: " . $_SERVER['REQUEST_URI']);
+            
+            // Dispatch de route
+            error_log("Start route dispatching");
+            $router->dispatch();
+            error_log("Route dispatching voltooid");
+            
+        } catch (Exception $e) {
+            // Toon error pagina met details
+            http_response_code(500);
+            echo '<!DOCTYPE html>';
+            echo '<html><head><title>Applicatie Error</title>';
+            echo '<style>body{font-family:Arial,sans-serif;line-height:1.6;max-width:800px;margin:0 auto;padding:20px}
+            .error{background:#ffeeee;border-left:4px solid #cc0000;padding:10px}
+            h1{color:#cc0000}pre{background:#f8f8f8;padding:10px;overflow:auto}</style>';
+            echo '</head><body>';
+            echo '<h1>Er is een fout opgetreden</h1>';
+            echo '<div class="error">';
+            echo '<p><strong>Foutmelding:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>';
+            echo '<p><strong>Bestand:</strong> ' . htmlspecialchars($e->getFile()) . ' op regel ' . $e->getLine() . '</p>';
+            echo '</div>';
+            
+            echo '<h2>Stack Trace:</h2>';
+            echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+            
+            // Toon informatie over de bestanden en mappen
+            echo '<h2>Diagnostische informatie:</h2>';
+            echo '<h3>Directorystructuur:</h3>';
+            echo '<pre>';
+            system('ls -la ' . ROOT_PATH . ' 2>&1');
+            echo '</pre>';
+            
+            echo '<h3>Autoloader inhoud:</h3>';
+            echo '<pre>';
+            if (file_exists(ROOT_PATH . '/autoload.php')) {
+                highlight_file(ROOT_PATH . '/autoload.php');
+            } else {
+                echo "Autoload bestand niet gevonden!";
+            }
+            echo '</pre>';
+            
+            echo '<h3>Server variabelen:</h3>';
+            echo '<pre>';
+            echo htmlspecialchars(print_r($_SERVER, true));
+            echo '</pre>';
+            
+            echo '</body></html>';
+            
+            // Log de fout
+            error_log("Kritieke fout: " . $e->getMessage() . " in " . $e->getFile() . " op regel " . $e->getLine());
+            error_log("Stack trace: " . $e->getTraceAsString());
+        }
+        EOL
         
-        // Gebruik de namespace
-        use App\Core\Router;
-        use App\Core\Session;
+        # Maak een eenvoudige debug.php voor het testen van classes
+        echo "Stap 6: Debug bestand aanmaken"
+        cat > deploy_all/debug.php << 'EOL'
+        <?php
+        // Foutrapportage inschakelen voor debugging
+        ini_set('display_errors', 1);
+        error_reporting(E_ALL);
         
-        // Start sessie
-        Session::start();
+        // Definieer het pad naar de applicatie
+        define('ROOT_PATH', __DIR__);
         
-        // Maak router-instantie
-        $router = new Router();
+        echo "<h1>PHP Debug Pagina</h1>";
         
-        // Definieer routes (deze moeten overeenkomen met de routes in public/index.php)
-        // Authentication routes
-        $router->register('/', ['controller' => 'DashboardController', 'action' => 'index']);
-        $router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
-        $router->register('/register', ['controller' => 'AuthController', 'action' => 'register']);
-        $router->register('/logout', ['controller' => 'AuthController', 'action' => 'logout']);
-        $router->register('/profile', ['controller' => 'AuthController', 'action' => 'profile']);
-        $router->register('/profile/update', ['controller' => 'AuthController', 'action' => 'updateProfile'], 'POST');
-        $router->register('/profile/change-password', ['controller' => 'AuthController', 'action' => 'changePassword'], 'POST');
-        $router->register('/forgot-password', ['controller' => 'AuthController', 'action' => 'forgotPassword']);
-        $router->register('/reset-password', ['controller' => 'AuthController', 'action' => 'resetPassword'], 'POST');
+        echo "<h2>Omgeving:</h2>";
+        echo "<pre>";
+        echo "PHP versie: " . phpversion() . "\n";
+        echo "Server software: " . $_SERVER['SERVER_SOFTWARE'] . "\n";
+        echo "Document root: " . $_SERVER['DOCUMENT_ROOT'] . "\n";
+        echo "Huidig script: " . __FILE__ . "\n";
+        echo "</pre>";
         
-        // Transaction routes
-        $router->register('/transactions', ['controller' => 'TransactionController', 'action' => 'index']);
-        $router->register('/transactions/create', ['controller' => 'TransactionController', 'action' => 'create']);
-        $router->register('/transactions/store', ['controller' => 'TransactionController', 'action' => 'store'], 'POST');
-        $router->register('/transactions/edit', ['controller' => 'TransactionController', 'action' => 'edit']);
-        $router->register('/transactions/update', ['controller' => 'TransactionController', 'action' => 'update'], 'POST');
-        $router->register('/transactions/delete', ['controller' => 'TransactionController', 'action' => 'delete']);
+        echo "<h2>Bestandsstructuur:</h2>";
+        echo "<pre>";
+        system('ls -la ' . ROOT_PATH);
+        echo "</pre>";
         
-        // Account routes
-        $router->register('/accounts', ['controller' => 'AccountController', 'action' => 'index']);
-        $router->register('/accounts/create', ['controller' => 'AccountController', 'action' => 'create']);
-        $router->register('/accounts/store', ['controller' => 'AccountController', 'action' => 'store'], 'POST');
-        $router->register('/accounts/edit', ['controller' => 'AccountController', 'action' => 'edit']);
-        $router->register('/accounts/update', ['controller' => 'AccountController', 'action' => 'update'], 'POST');
-        $router->register('/accounts/delete', ['controller' => 'AccountController', 'action' => 'delete']);
+        echo "<h2>Autoloader Test:</h2>";
+        try {
+            echo "Autoloader laden... ";
+            require_once ROOT_PATH . '/autoload.php';
+            echo "OK\n";
+            
+            echo "\nControleren of core classes bestaan:\n";
+            $classes = [
+                '\\App\\Core\\Router',
+                '\\App\\Core\\Session',
+                '\\App\\Core\\Auth',
+                '\\App\\Core\\Database',
+                '\\App\\Controllers\\AuthController',
+                '\\App\\Controllers\\DashboardController'
+            ];
+            
+            foreach ($classes as $class) {
+                echo "Class $class: ";
+                if (class_exists($class)) {
+                    echo "Gevonden!\n";
+                } else {
+                    echo "NIET GEVONDEN\n";
+                }
+            }
+        } catch (Exception $e) {
+            echo "FOUT: " . $e->getMessage();
+        }
         
-        // Category routes
-        $router->register('/categories', ['controller' => 'CategoryController', 'action' => 'index']);
-        $router->register('/categories/create', ['controller' => 'CategoryController', 'action' => 'create']);
-        $router->register('/categories/store', ['controller' => 'CategoryController', 'action' => 'store'], 'POST');
-        $router->register('/categories/edit', ['controller' => 'CategoryController', 'action' => 'edit']);
-        $router->register('/categories/update', ['controller' => 'CategoryController', 'action' => 'update'], 'POST');
-        $router->register('/categories/delete', ['controller' => 'CategoryController', 'action' => 'delete']);
+        echo "</pre>";
         
-        // Budget routes
-        $router->register('/budgets', ['controller' => 'BudgetController', 'action' => 'index']);
-        $router->register('/budgets/create', ['controller' => 'BudgetController', 'action' => 'create']);
-        $router->register('/budgets/store', ['controller' => 'BudgetController', 'action' => 'store'], 'POST');
-        $router->register('/budgets/edit', ['controller' => 'BudgetController', 'action' => 'edit']);
-        $router->register('/budgets/update', ['controller' => 'BudgetController', 'action' => 'update'], 'POST');
-        $router->register('/budgets/delete', ['controller' => 'BudgetController', 'action' => 'delete']);
-        
-        // Report routes
-        $router->register('/reports', ['controller' => 'ReportController', 'action' => 'index']);
-        $router->register('/reports/category', ['controller' => 'ReportController', 'action' => 'categoryDetail']);
-        
-        // Savings routes
-        $router->register('/savings', ['controller' => 'SavingsController', 'action' => 'index']);
-        $router->register('/savings/create', ['controller' => 'SavingsController', 'action' => 'create']);
-        $router->register('/savings/store', ['controller' => 'SavingsController', 'action' => 'store'], 'POST');
-        $router->register('/savings/show', ['controller' => 'SavingsController', 'action' => 'show']);
-        $router->register('/savings/edit', ['controller' => 'SavingsController', 'action' => 'edit']);
-        $router->register('/savings/update', ['controller' => 'SavingsController', 'action' => 'update'], 'POST');
-        $router->register('/savings/delete', ['controller' => 'SavingsController', 'action' => 'delete']);
-        $router->register('/savings/add-contribution', ['controller' => 'SavingsController', 'action' => 'addContribution'], 'POST');
-        $router->register('/savings/remove-contribution', ['controller' => 'SavingsController', 'action' => 'removeContribution']);
-        
-        // Export routes
-        $router->register('/export', ['controller' => 'ExportController', 'action' => 'index']);
-        $router->register('/export/transactions', ['controller' => 'ExportController', 'action' => 'exportTransactions'], 'POST');
-        $router->register('/export/budgets', ['controller' => 'ExportController', 'action' => 'exportBudgets'], 'POST');
-        $router->register('/export/accounts', ['controller' => 'ExportController', 'action' => 'exportAccounts'], 'POST');
-        $router->register('/export/download', ['controller' => 'ExportController', 'action' => 'download']);
-        
-        // Notification routes
-        $router->register('/notifications', ['controller' => 'NotificationController', 'action' => 'index']);
-        $router->register('/notifications/mark-read', ['controller' => 'NotificationController', 'action' => 'markAsRead'], 'POST');
-        $router->register('/notifications/mark-all-read', ['controller' => 'NotificationController', 'action' => 'markAllAsRead'], 'POST');
-        $router->register('/notifications/count', ['controller' => 'NotificationController', 'action' => 'getUnreadCount']);
-        
-        // Recurring transaction routes
-        $router->register('/recurring', ['controller' => 'RecurringTransactionController', 'action' => 'index']);
-        $router->register('/recurring/create', ['controller' => 'RecurringTransactionController', 'action' => 'create']);
-        $router->register('/recurring/store', ['controller' => 'RecurringTransactionController', 'action' => 'store'], 'POST');
-        $router->register('/recurring/edit', ['controller' => 'RecurringTransactionController', 'action' => 'edit']);
-        $router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
-        $router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
-        
-        // Dispatch de route
-        $router->dispatch();
+        echo "<h2>PHP Modules:</h2>";
+        echo "<pre>";
+        print_r(get_loaded_extensions());
+        echo "</pre>";
         EOL
         
         # Behoud een paar testbestanden voor debugging
-        echo "Stap 6: Testbestanden aanmaken"
+        echo "Stap 7: Testbestanden aanmaken"
         cat > deploy_all/test.php << 'EOL'
         <?php
         echo '<h1>Test Pagina</h1>';
@@ -216,7 +366,7 @@ jobs:
         ?>
         EOL
         
-        echo "Stap 7: Readme toevoegen"
+        echo "Stap 8: Readme toevoegen"
         cat > deploy_all/README.txt << 'EOL'
         Financieel Beheer Applicatie
         ===========================
@@ -230,6 +380,7 @@ jobs:
         Testpagina's:
         - /test.php - Om te controleren of PHP werkt
         - /info.php - Voor gedetailleerde PHP-informatie
+        - /debug.php - Voor diagnose van classeladerproblemen
         EOL
     
     - name: FTP Deploy All Files
