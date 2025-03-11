@@ -51,50 +51,136 @@ jobs:
         
         cp autoload.php deploy_all/
         
-        # Maak een aangepaste .htaccess
-        echo "Stap 3: Maak .htaccess bestand"
-        cat > deploy_all/.htaccess << 'EOL'
-        # Activeer rewrite engine
-        RewriteEngine On
+        # Maak een vereenvoudigde autoloader voor namespace problemen
+        echo "Extra stap: Alternatieve autoloader maken"
+        cat > deploy_all/alt_autoload.php << 'EOL'
+        <?php
+        /**
+         * Alternatieve Autoloader voor Financieel Beheer
+         * Deze autoloader is speciaal gemaakt voor de productieomgeving
+         */
         
-        # Sta directorylistings niet toe
-        Options -Indexes
+        // Composer autoloader indien beschikbaar
+        if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+            require_once __DIR__ . '/vendor/autoload.php';
+        }
         
-        # Omleiden alles naar index.php, behalve bestaande bestanden
-        RewriteCond %{REQUEST_FILENAME} !-f
-        RewriteCond %{REQUEST_FILENAME} !-d
-        RewriteRule ^(.*)$ index.php [QSA,L]
+        // Eenvoudige PSR-4 stijl autoloader
+        spl_autoload_register(function ($className) {
+            // Verwijder 'App\' en vervang namespace separators met directory separators
+            $className = ltrim($className, '\\');
+            
+            // Log voor debugging
+            error_log("Autoloader probeert te laden: $className");
+            
+            if (strpos($className, 'App\\') === 0) {
+                $className = substr($className, 4); // Verwijder 'App\'
+                $fileName = __DIR__ . '/' . str_replace('\\', '/', $className) . '.php';
+                error_log("Vertaald naar bestandspad: $fileName");
+                
+                if (file_exists($fileName)) {
+                    require_once $fileName;
+                    return true;
+                }
+            }
+            
+            // Fallback voor oude stijl laden van klassen (zonder namespace)
+            $parts = explode('\\', $className);
+            $class = end($parts);
+            
+            // Check in verschillende mappen
+            $directories = ['controllers', 'models', 'core', 'services', 'helpers'];
+            foreach ($directories as $dir) {
+                $file = __DIR__ . "/$dir/$class.php";
+                error_log("Fallback check: $file");
+                if (file_exists($file)) {
+                    require_once $file;
+                    return true;
+                }
+            }
+            
+            return false;
+        });
         
-        # PHP-instellingen
-        php_flag display_errors off
-        php_value upload_max_filesize 10M
-        php_value post_max_size 10M
+        // Legacy autoloader - direct laden van bekende klassen
+        $coreClasses = ['Session', 'Router', 'Database', 'Auth', 'Controller'];
+        foreach ($coreClasses as $class) {
+            $file = __DIR__ . "/core/{$class}.php";
+            if (file_exists($file)) {
+                require_once $file;
+            }
+        }
         
-        # Voorkom toegang tot gevoelige bestanden
-        <FilesMatch "^\.">
-            Order allow,deny
-            Deny from all
-        </FilesMatch>
+        $modelClasses = ['User', 'Account', 'AccountType', 'Category', 'Transaction', 'Budget', 'SavingsGoal'];
+        foreach ($modelClasses as $class) {
+            $file = __DIR__ . "/models/{$class}.php";
+            if (file_exists($file)) {
+                require_once $file;
+            }
+        }
         
-        # Beveilig config-bestanden
-        <FilesMatch "\.(env|config|ini|json|lock)$">
-            Order allow,deny
-            Deny from all
-        </FilesMatch>
+        $controllerClasses = ['AuthController', 'DashboardController', 'TransactionController', 'AccountController'];
+        foreach ($controllerClasses as $class) {
+            $file = __DIR__ . "/controllers/{$class}.php";
+            if (file_exists($file)) {
+                require_once $file;
+            }
+        }
         EOL
         
-        # Maak database configuratie (pas aan voor productie)
-        echo "Stap 4: Database configuratie maken"
-        mkdir -p deploy_all/config
-        cat > deploy_all/config/database.php << 'EOL'
+        # Maak een test bestand voor de alternatieve autoloader
+        cat > deploy_all/alt_loader_test.php << 'EOL'
         <?php
-        return [
-            'host' => 'localhost',
-            'dbname' => 'sunshine_geldbeheer',
-            'username' => 'sunshine_geldbeheer',
-            'password' => 'Veilig-2024', // Dit moet aangepast worden naar het echte wachtwoord
-            'charset' => 'utf8mb4'
-        ];
+        ini_set('display_errors', 1);
+        error_reporting(E_ALL);
+        
+        define('ROOT_PATH', __DIR__);
+        
+        echo "<h1>Test Alternatieve Autoloader</h1>";
+        
+        try {
+            echo "<p>Autoloader laden...</p>";
+            require_once 'alt_autoload.php';
+            echo "<p>Autoloader geladen!</p>";
+            
+            echo "<h2>Class tests:</h2>";
+            echo "<pre>";
+            
+            // Test of de classes geladen kunnen worden via namespaces
+            $classTests = [
+                '\\App\\Core\\Router',
+                '\\App\\Core\\Session',
+                '\\App\\Controllers\\AuthController'
+            ];
+            
+            foreach ($classTests as $className) {
+                echo "Class $className: ";
+                if (class_exists($className)) {
+                    echo "Kan worden geladen\n";
+                } else {
+                    echo "Kan NIET worden geladen\n";
+                }
+            }
+            
+            echo "</pre>";
+            
+            echo "<h2>Bestandsstructuur:</h2>";
+            echo "<pre>";
+            
+            $files = scandir(ROOT_PATH);
+            foreach ($files as $file) {
+                if ($file != '.' && $file != '..') {
+                    $is_dir = is_dir(ROOT_PATH . '/' . $file) ? 'D' : 'F';
+                    $size = filesize(ROOT_PATH . '/' . $file);
+                    echo "$is_dir\t$size\t$file\n";
+                }
+            }
+            
+            echo "</pre>";
+            
+        } catch (Exception $e) {
+            echo "<p>Error: " . $e->getMessage() . "</p>";
+        }
         EOL
         
         # Maak index.php bestand dat alle functionaliteit inlaadt
@@ -114,17 +200,39 @@ jobs:
         
         try {
             // Log dat we de autoloader gaan laden
-            error_log("Start: Autoloader laden");
+            error_log("Start: Autoloader proberen te laden");
             
-            // Controleer of autoload.php bestaat
-            if (!file_exists(ROOT_PATH . '/autoload.php')) {
-                throw new Exception("Autoload bestand niet gevonden!");
+            // Probeer eerst de standaard autoloader
+            $autoloadSuccess = false;
+            
+            if (file_exists(ROOT_PATH . '/autoload.php')) {
+                try {
+                    require_once ROOT_PATH . '/autoload.php';
+                    if (class_exists('\\App\\Core\\Router') && class_exists('\\App\\Core\\Session')) {
+                        $autoloadSuccess = true;
+                        error_log("Standaard autoloader succesvol geladen");
+                    } else {
+                        error_log("Standaard autoloader geladen maar classes niet gevonden");
+                    }
+                } catch (Exception $e) {
+                    error_log("Fout bij laden standaard autoloader: " . $e->getMessage());
+                }
             }
             
-            // Laad de autoloader
-            require_once ROOT_PATH . '/autoload.php';
+            // Als standaard autoloader faalt, probeer alternatieve
+            if (!$autoloadSuccess && file_exists(ROOT_PATH . '/alt_autoload.php')) {
+                try {
+                    require_once ROOT_PATH . '/alt_autoload.php';
+                    error_log("Alternatieve autoloader geladen");
+                    $autoloadSuccess = true;
+                } catch (Exception $e) {
+                    error_log("Fout bij laden alternatieve autoloader: " . $e->getMessage());
+                }
+            }
             
-            error_log("Autoloader succesvol geladen");
+            if (!$autoloadSuccess) {
+                throw new Exception("Geen werkende autoloader gevonden!");
+            }
             
             // Controleer of hoofdklassen bestaan
             if (!class_exists('\\App\\Core\\Router')) {
@@ -309,6 +417,52 @@ jobs:
             error_log("Kritieke fout: " . $e->getMessage() . " in " . $e->getFile() . " op regel " . $e->getLine());
             error_log("Stack trace: " . $e->getTraceAsString());
         }
+        EOL
+        
+        # Maak een aangepaste .htaccess
+        echo "Stap 3: Maak .htaccess bestand"
+        cat > deploy_all/.htaccess << 'EOL'
+        # Activeer rewrite engine
+        RewriteEngine On
+        
+        # Sta directorylistings niet toe
+        Options -Indexes
+        
+        # Omleiden alles naar index.php, behalve bestaande bestanden
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^(.*)$ index.php [QSA,L]
+        
+        # PHP-instellingen
+        php_flag display_errors off
+        php_value upload_max_filesize 10M
+        php_value post_max_size 10M
+        
+        # Voorkom toegang tot gevoelige bestanden
+        <FilesMatch "^\.">
+            Order allow,deny
+            Deny from all
+        </FilesMatch>
+        
+        # Beveilig config-bestanden
+        <FilesMatch "\.(env|config|ini|json|lock)$">
+            Order allow,deny
+            Deny from all
+        </FilesMatch>
+        EOL
+        
+        # Maak database configuratie (pas aan voor productie)
+        echo "Stap 4: Database configuratie maken"
+        mkdir -p deploy_all/config
+        cat > deploy_all/config/database.php << 'EOL'
+        <?php
+        return [
+            'host' => 'localhost',
+            'dbname' => 'sunshine_geldbeheer',
+            'username' => 'sunshine_geldbeheer',
+            'password' => 'Veilig-2024', // Dit moet aangepast worden naar het echte wachtwoord
+            'charset' => 'utf8mb4'
+        ];
         EOL
         
         # Maak een eenvoudige debug.php voor het testen van classes
