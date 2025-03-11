@@ -32,9 +32,23 @@ jobs:
         cp -r helpers deploy_all/
         cp -r services deploy_all/
         cp -r database deploy_all/
-        cp -r public/assets deploy_all/assets
-        cp -r public/css deploy_all/css
-        cp -r public/js deploy_all/js
+        
+        # Kopieer statische bestanden indien aanwezig
+        if [ -d "public/assets" ]; then
+          mkdir -p deploy_all/assets
+          cp -r public/assets/* deploy_all/assets/
+        fi
+        
+        if [ -d "public/css" ]; then
+          mkdir -p deploy_all/css
+          cp -r public/css/* deploy_all/css/
+        fi
+        
+        if [ -d "public/js" ]; then
+          mkdir -p deploy_all/js
+          cp -r public/js/* deploy_all/js/
+        fi
+        
         cp autoload.php deploy_all/
         
         # Maak een aangepaste .htaccess
