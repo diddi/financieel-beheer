@@ -143,25 +143,85 @@ jobs:
             require_once 'alt_autoload.php';
             echo "<p>Autoloader geladen!</p>";
             
-            echo "<h2>Class tests:</h2>";
+            echo "<h2>Class tests met namespace:</h2>";
             echo "<pre>";
             
             // Test of de classes geladen kunnen worden via namespaces
             $classTests = [
                 '\\App\\Core\\Router',
                 '\\App\\Core\\Session',
-                '\\App\\Controllers\\AuthController'
+                '\\App\\Core\\Auth',
+                '\\App\\Core\\Database',
+                '\\App\\Controllers\\AuthController',
+                '\\App\\Controllers\\DashboardController',
+                '\\App\\Models\\User',
+                'Router', // Zonder namespace
+                'Session', // Zonder namespace
+                'AuthController' // Zonder namespace
             ];
             
             foreach ($classTests as $className) {
                 echo "Class $className: ";
                 if (class_exists($className)) {
                     echo "Kan worden geladen\n";
+                    // Toon methoden
+                    echo "  Beschikbare methoden: ";
+                    $methods = get_class_methods($className);
+                    echo implode(", ", $methods) . "\n";
                 } else {
                     echo "Kan NIET worden geladen\n";
                 }
             }
             
+            echo "</pre>";
+            
+            echo "<h2>Test Router functionaliteit:</h2>";
+            echo "<pre>";
+            
+            if (class_exists('\\App\\Core\\Router')) {
+                $router = new \App\Core\Router();
+                echo "Router object gemaakt \n";
+                
+                try {
+                    // Registreer een test route
+                    $router->register('/test', ['controller' => 'TestController', 'action' => 'index']);
+                    echo "Route geregistreerd \n";
+                } catch (Exception $e) {
+                    echo "Fout bij registreren route: " . $e->getMessage() . "\n";
+                }
+            } else {
+                echo "Kan geen Router object maken omdat de class niet bestaat\n";
+            }
+            
+            echo "</pre>";
+            
+            echo "<h2>Controleer Controller Classes:</h2>";
+            echo "<pre>";
+            $controllerDir = ROOT_PATH . '/controllers';
+            if (is_dir($controllerDir)) {
+                $files = scandir($controllerDir);
+                foreach ($files as $file) {
+                    if ($file != '.' && $file != '..' && strpos($file, '.php') !== false) {
+                        $className = basename($file, '.php');
+                        echo "Controller bestand: $file - ";
+                        
+                        if (class_exists($className) || class_exists("\\App\\Controllers\\$className")) {
+                            echo "Class kan worden geladen\n";
+                        } else {
+                            echo "Class kan NIET worden geladen\n";
+                            // Toon bestandsinhoud voor eerste 5 regels
+                            $content = file_get_contents($controllerDir . '/' . $file);
+                            $lines = explode("\n", $content);
+                            echo "  Eerste regels: \n";
+                            for($i = 0; $i < min(5, count($lines)); $i++) {
+                                echo "    " . htmlspecialchars($lines[$i]) . "\n";
+                            }
+                        }
+                    }
+                }
+            } else {
+                echo "Controllers directory niet gevonden\n";
+            }
             echo "</pre>";
             
             echo "<h2>Bestandsstructuur:</h2>";
@@ -173,13 +233,35 @@ jobs:
                     $is_dir = is_dir(ROOT_PATH . '/' . $file) ? 'D' : 'F';
                     $size = filesize(ROOT_PATH . '/' . $file);
                     echo "$is_dir\t$size\t$file\n";
+                    
+                    // Als het een directory is, scan ook de inhoud
+                    if ($is_dir == 'D' && in_array($file, ['controllers', 'core', 'models'])) {
+                        $subFiles = scandir(ROOT_PATH . '/' . $file);
+                        foreach ($subFiles as $subFile) {
+                            if ($subFile != '.' && $subFile != '..') {
+                                $sub_is_dir = is_dir(ROOT_PATH . '/' . $file . '/' . $subFile) ? 'D' : 'F';
+                                $sub_size = filesize(ROOT_PATH . '/' . $file . '/' . $subFile);
+                                echo "  $sub_is_dir\t$sub_size\t$file/$subFile\n";
+                            }
+                        }
+                    }
                 }
             }
             
             echo "</pre>";
             
+            echo "<h2>PHP Informatie:</h2>";
+            echo "<pre>";
+            echo "PHP versie: " . phpversion() . "\n";
+            echo "Server: " . $_SERVER['SERVER_SOFTWARE'] . "\n";
+            echo "Document Root: " . $_SERVER['DOCUMENT_ROOT'] . "\n";
+            echo "Request URI: " . $_SERVER['REQUEST_URI'] . "\n";
+            echo "</pre>";
+            
         } catch (Exception $e) {
             echo "<p>Error: " . $e->getMessage() . "</p>";
+            echo "<p>File: " . $e->getFile() . " (line " . $e->getLine() . ")</p>";
+            echo "<pre>" . $e->getTraceAsString() . "</pre>";
         }
         EOL
         
@@ -187,52 +269,54 @@ jobs:
         echo "Stap 5: Index.php maken"
         cat > deploy_all/index.php << 'EOL'
         <?php
-        // Foutrapportage inschakelen voor debugging
+        // Schakel alle foutrapportage in en toon fouten direct in de browser
         ini_set('display_errors', 1);
         error_reporting(E_ALL);
         
-        // Log fouten ook naar een bestand
-        ini_set('log_errors', 1);
-        ini_set('error_log', __DIR__ . '/error_log.txt');
+        // Schakel foutlogging tijdelijk uit omdat dit mogelijk problemen geeft
+        ini_set('log_errors', 0);
         
         // Definieer het pad naar de applicatie
         define('ROOT_PATH', __DIR__);
         
         try {
-            // Log dat we de autoloader gaan laden
-            error_log("Start: Autoloader proberen te laden");
+            echo "<!--DEBUG: Start autoloader laden-->";
             
             // Probeer eerst de standaard autoloader
             $autoloadSuccess = false;
             
             if (file_exists(ROOT_PATH . '/autoload.php')) {
                 try {
+                    echo "<!--DEBUG: Standaard autoloader gevonden-->";
                     require_once ROOT_PATH . '/autoload.php';
                     if (class_exists('\\App\\Core\\Router') && class_exists('\\App\\Core\\Session')) {
                         $autoloadSuccess = true;
-                        error_log("Standaard autoloader succesvol geladen");
+                        echo "<!--DEBUG: Standaard autoloader succesvol geladen-->";
                     } else {
-                        error_log("Standaard autoloader geladen maar classes niet gevonden");
+                        echo "<!--DEBUG: Standaard autoloader geladen maar classes niet gevonden-->";
                     }
                 } catch (Exception $e) {
-                    error_log("Fout bij laden standaard autoloader: " . $e->getMessage());
+                    echo "<!--DEBUG: Fout bij laden standaard autoloader: " . $e->getMessage() . "-->";
                 }
             }
             
             // Als standaard autoloader faalt, probeer alternatieve
             if (!$autoloadSuccess && file_exists(ROOT_PATH . '/alt_autoload.php')) {
                 try {
+                    echo "<!--DEBUG: Probeer alternatieve autoloader-->";
                     require_once ROOT_PATH . '/alt_autoload.php';
-                    error_log("Alternatieve autoloader geladen");
+                    echo "<!--DEBUG: Alternatieve autoloader geladen-->";
                     $autoloadSuccess = true;
                 } catch (Exception $e) {
-                    error_log("Fout bij laden alternatieve autoloader: " . $e->getMessage());
+                    echo "<!--DEBUG: Fout bij laden alternatieve autoloader: " . $e->getMessage() . "-->";
                 }
             }
             
             if (!$autoloadSuccess) {
                 throw new Exception("Geen werkende autoloader gevonden!");
             }
+            
+            echo "<!--DEBUG: Na laden autoloader-->";
             
             // Controleer of hoofdklassen bestaan
             if (!class_exists('\\App\\Core\\Router')) {
@@ -243,22 +327,21 @@ jobs:
                 throw new Exception("Session class niet gevonden!");
             }
             
+            echo "<!--DEBUG: Classes Router en Session gevonden-->";
+            
             // Gebruik de namespace
             use App\Core\Router;
             use App\Core\Session;
             
-            error_log("Core classes succesvol geladen");
-            
+            echo "<!--DEBUG: Session starten-->";
             // Start sessie
             Session::start();
             
-            error_log("Sessie gestart");
-            
+            echo "<!--DEBUG: Router instantiëren-->";
             // Maak router-instantie
             $router = new Router();
             
-            error_log("Router aangemaakt");
-            
+            echo "<!--DEBUG: Routes registreren-->";
             // Definieer routes
             // Authentication routes
             $router->register('/', ['controller' => 'DashboardController', 'action' => 'index']);
@@ -340,15 +423,15 @@ jobs:
             $router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
             $router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
             
-            error_log("Routes geregistreerd");
+            // Voeg een diagnostische route toe
+            $router->register('/phpinfo', ['controller' => 'DashboardController', 'action' => 'phpinfo']);
             
-            // Log de huidige URL
-            error_log("Huidige URL: " . $_SERVER['REQUEST_URI']);
+            echo "<!--DEBUG: Huidige URL: " . $_SERVER['REQUEST_URI'] . "-->";
             
             // Dispatch de route
-            error_log("Start route dispatching");
+            echo "<!--DEBUG: Start route dispatching-->";
             $router->dispatch();
-            error_log("Route dispatching voltooid");
+            echo "<!--DEBUG: Route dispatching voltooid-->";
             
         } catch (Exception $e) {
             // Toon error pagina met details
@@ -392,6 +475,15 @@ jobs:
             }
             echo '</pre>';
             
+            echo '<h3>Alternatieve Autoloader inhoud:</h3>';
+            echo '<pre>';
+            if (file_exists(ROOT_PATH . '/alt_autoload.php')) {
+                highlight_file(ROOT_PATH . '/alt_autoload.php');
+            } else {
+                echo "Alternatieve autoload bestand niet gevonden!";
+            }
+            echo '</pre>';
+            
             // Extra diagnostische informatie
             echo '<h3>Namespace testen:</h3>';
             echo '<pre>';
@@ -403,7 +495,23 @@ jobs:
             
             foreach ($paths as $path) {
                 echo "Pad $path: " . (file_exists(ROOT_PATH . '/' . $path) ? 'Bestaat' : 'Bestaat NIET') . "\n";
+                if (file_exists(ROOT_PATH . '/' . $path)) {
+                    echo "Inhoud: \n";
+                    $content = file_get_contents(ROOT_PATH . '/' . $path);
+                    $lines = explode("\n", $content);
+                    // Toon alleen de eerste regels (namespace en klasse definitie)
+                    for($i = 0; $i < min(10, count($lines)); $i++) {
+                        echo htmlspecialchars($lines[$i]) . "\n";
+                    }
+                    echo "...\n\n";
+                }
             }
+            echo '</pre>';
+            
+            echo '<h3>PHP versie en modules:</h3>';
+            echo '<pre>';
+            echo 'PHP versie: ' . phpversion() . "\n";
+            echo 'Geladen extensies: ' . implode(', ', get_loaded_extensions()) . "\n";
             echo '</pre>';
             
             echo '<h3>Server variabelen:</h3>';
@@ -412,10 +520,6 @@ jobs:
             echo '</pre>';
             
             echo '</body></html>';
-            
-            // Log de fout
-            error_log("Kritieke fout: " . $e->getMessage() . " in " . $e->getFile() . " op regel " . $e->getLine());
-            error_log("Stack trace: " . $e->getTraceAsString());
         }
         EOL
         
@@ -618,3 +722,145 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
+
+# Maak een eenvoudige debug implementatie van een controller
+        echo "Stap 9: Simple controller voor testing"
+        cat > deploy_all/simple_debug.php << 'EOL'
+        <?php
+        ini_set('display_errors', 1);
+        error_reporting(E_ALL);
+        
+        define('ROOT_PATH', __DIR__);
+        
+        echo "<h1>Simple Debug Controller Test</h1>";
+        
+        // Eenvoudige Router class
+        class SimpleRouter {
+            private $routes = [];
+            
+            public function register($uri, $handler, $method = null) {
+                $this->routes[$uri] = [
+                    'controller' => $handler['controller'],
+                    'action' => $handler['action'],
+                    'method' => $method
+                ];
+                echo "<p>Route geregistreerd: $uri -> {$handler['controller']}::{$handler['action']}</p>";
+            }
+            
+            public function dispatch() {
+                $uri = $_SERVER['REQUEST_URI'];
+                $uri = strtok($uri, '?'); // Verwijder query parameters
+                
+                echo "<p>Dispatching URI: $uri</p>";
+                
+                if (isset($this->routes[$uri])) {
+                    $route = $this->routes[$uri];
+                    $controller = $route['controller'];
+                    $action = $route['action'];
+                    
+                    echo "<p>Route gevonden: $controller::$action</p>";
+                    
+                    // Controleer of method bestaat
+                    if ($route['method'] && $_SERVER['REQUEST_METHOD'] != $route['method']) {
+                        echo "<p>Error: Methode komt niet overeen</p>";
+                        return;
+                    }
+                    
+                    // Controleer of controller bestaat
+                    if (!class_exists($controller)) {
+                        echo "<p>Error: Controller '$controller' niet gevonden</p>";
+                        return;
+                    }
+                    
+                    // Maak controller instantie
+                    $controllerInstance = new $controller();
+                    
+                    // Controleer of action bestaat
+                    if (!method_exists($controllerInstance, $action)) {
+                        echo "<p>Error: Action '$action' niet gevonden in controller '$controller'</p>";
+                        return;
+                    }
+                    
+                    echo "<p>Success: Controller en action gevonden, wordt uitgevoerd...</p>";
+                    
+                    // Voer action uit
+                    $controllerInstance->$action();
+                } else {
+                    echo "<p>Geen route gevonden voor: $uri</p>";
+                    echo "<p>Beschikbare routes:</p><ul>";
+                    foreach ($this->routes as $routeUri => $routeData) {
+                        echo "<li>$routeUri -> {$routeData['controller']}::{$routeData['action']}</li>";
+                    }
+                    echo "</ul>";
+                }
+            }
+        }
+        
+        // Eenvoudige Session class
+        class SimpleSession {
+            public static function start() {
+                session_start();
+                echo "<p>Sessie gestart</p>";
+            }
+            
+            public static function set($key, $value) {
+                $_SESSION[$key] = $value;
+            }
+            
+            public static function get($key, $default = null) {
+                return isset($_SESSION[$key]) ? $_SESSION[$key] : $default;
+            }
+        }
+        
+        // Eenvoudige Controller class
+        class SimpleController {
+            public function render($view, $data = []) {
+                echo "<div style='border:1px solid #ccc; padding:10px; margin:10px 0;'>";
+                echo "<h3>View: $view</h3>";
+                echo "<pre>";
+                print_r($data);
+                echo "</pre>";
+                echo "</div>";
+            }
+        }
+        
+        // Test controllers
+        class TestController extends SimpleController {
+            public function index() {
+                echo "<p>TestController::index aangeroepen</p>";
+                $this->render('test/index', ['message' => 'Dit is een test']);
+            }
+        }
+        
+        class AuthController extends SimpleController {
+            public function login() {
+                echo "<p>AuthController::login aangeroepen</p>";
+                $this->render('auth/login', ['title' => 'Login Pagina']);
+            }
+            
+            public function profile() {
+                echo "<p>AuthController::profile aangeroepen</p>";
+                $this->render('auth/profile', ['user' => ['name' => 'Test Gebruiker', 'email' => 'test@example.com']]);
+            }
+        }
+        
+        try {
+            // Test SimpleRouter functionaliteit
+            SimpleSession::start();
+            
+            $router = new SimpleRouter();
+            
+            // Registreer wat routes
+            $router->register('/', ['controller' => 'TestController', 'action' => 'index']);
+            $router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
+            $router->register('/profile', ['controller' => 'AuthController', 'action' => 'profile']);
+            
+            // Dispatch de route
+            $router->dispatch();
+            
+        } catch (Exception $e) {
+            echo "<h2>Error</h2>";
+            echo "<p>" . $e->getMessage() . "</p>";
+            echo "<pre>" . $e->getTraceAsString() . "</pre>";
+        }
+        EOL
