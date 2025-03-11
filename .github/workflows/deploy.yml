@@ -58,6 +58,7 @@ jobs:
         /**
          * Alternatieve Autoloader voor Financieel Beheer
          * Deze autoloader is speciaal gemaakt voor de productieomgeving
+         * Gebaseerd op PSR-4 standaard
          */
         
         // Composer autoloader indien beschikbaar
@@ -65,34 +66,102 @@ jobs:
             require_once __DIR__ . '/vendor/autoload.php';
         }
         
-        // Eenvoudige PSR-4 stijl autoloader
+        // Definieer het basepath
+        define('ROOT_PATH', __DIR__);
+        
+        // Directe laadstrategie - vooraf bekende klassen laden
+        $classMap = [
+            // Core classes
+            'App\\Core\\Router' => ROOT_PATH . '/core/Router.php',
+            'App\\Core\\Session' => ROOT_PATH . '/core/Session.php',
+            'App\\Core\\Database' => ROOT_PATH . '/core/Database.php',
+            'App\\Core\\Auth' => ROOT_PATH . '/core/Auth.php',
+            'App\\Core\\Controller' => ROOT_PATH . '/core/Controller.php',
+            
+            // Controllers (zonder App prefix)
+            'Router' => ROOT_PATH . '/core/Router.php',
+            'Session' => ROOT_PATH . '/core/Session.php',
+            'Database' => ROOT_PATH . '/core/Database.php',
+            'Auth' => ROOT_PATH . '/core/Auth.php',
+            'Controller' => ROOT_PATH . '/core/Controller.php',
+            
+            // Controllers (zonder App prefix)
+            'AuthController' => ROOT_PATH . '/controllers/AuthController.php',
+            'DashboardController' => ROOT_PATH . '/controllers/DashboardController.php',
+            'TransactionController' => ROOT_PATH . '/controllers/TransactionController.php',
+            'AccountController' => ROOT_PATH . '/controllers/AccountController.php',
+            
+            // Controllers (met App prefix)
+            'App\\Controllers\\AuthController' => ROOT_PATH . '/controllers/AuthController.php',
+            'App\\Controllers\\DashboardController' => ROOT_PATH . '/controllers/DashboardController.php',
+            'App\\Controllers\\TransactionController' => ROOT_PATH . '/controllers/TransactionController.php',
+            'App\\Controllers\\AccountController' => ROOT_PATH . '/controllers/AccountController.php',
+        ];
+        
+        // ClassMap autoloader - snelle directe lookup voor bekende klassen
+        spl_autoload_register(function ($className) use ($classMap) {
+            if (isset($classMap[$className])) {
+                // Log voor debugging
+                error_log("ClassMap autoloader laadt: $className uit bestand: {$classMap[$className]}");
+                
+                // Controleer of het bestand bestaat
+                if (file_exists($classMap[$className])) {
+                    require_once $classMap[$className];
+                    return true;
+                }
+            }
+            return false;
+        });
+        
+        // PSR-4 stijl autoloader
         spl_autoload_register(function ($className) {
-            // Verwijder 'App\' en vervang namespace separators met directory separators
+            // Log debugging info
+            error_log("PSR-4 autoloader probeert te laden: $className");
+            
+            // Verwijder leading backslash indien aanwezig
             $className = ltrim($className, '\\');
             
-            // Log voor debugging
-            error_log("Autoloader probeert te laden: $className");
-            
+            // Probeer met App namespace prefix
             if (strpos($className, 'App\\') === 0) {
-                $className = substr($className, 4); // Verwijder 'App\'
-                $fileName = __DIR__ . '/' . str_replace('\\', '/', $className) . '.php';
-                error_log("Vertaald naar bestandspad: $fileName");
+                // Verwijder 'App\' en maak bestandspad
+                $relativeClass = substr($className, 4);
+                $file = ROOT_PATH . '/' . str_replace('\\', '/', $relativeClass) . '.php';
                 
-                if (file_exists($fileName)) {
-                    require_once $fileName;
+                error_log("App\\ namespace prefix gevonden, zoekt bestand: $file");
+                
+                if (file_exists($file)) {
+                    require_once $file;
                     return true;
                 }
             }
             
-            // Fallback voor oude stijl laden van klassen (zonder namespace)
+            // Probeer zonder namespace maar met directory mapping voor bekende directories
             $parts = explode('\\', $className);
             $class = end($parts);
             
-            // Check in verschillende mappen
-            $directories = ['controllers', 'models', 'core', 'services', 'helpers'];
-            foreach ($directories as $dir) {
-                $file = __DIR__ . "/$dir/$class.php";
-                error_log("Fallback check: $file");
+            // Probeer verschillende bekende directory paden
+            $directories = [
+                'controllers' => ['Controller'],
+                'models' => ['Model'],
+                'core' => ['Core', 'Router', 'Session', 'Database', 'Auth'],
+                'services' => ['Service'],
+                'helpers' => ['Helper', 'Util']
+            ];
+            
+            foreach ($directories as $dir => $patterns) {
+                // Controleer of de klassenaam overeenkomt met bekende patronen voor deze directory
+                $matchesPattern = false;
+                foreach ($patterns as $pattern) {
+                    if (strpos($class, $pattern) !== false) {
+                        $matchesPattern = true;
+                        break;
+                    }
+                }
+                
+                // Of controleer direct de bestandsnaam
+                $file = ROOT_PATH . "/$dir/$class.php";
+                error_log("Zoeken in directorymap: $file");
+                
                 if (file_exists($file)) {
                     require_once $file;
                     return true;
@@ -105,7 +174,7 @@ jobs:
         // Legacy autoloader - direct laden van bekende klassen
         $coreClasses = ['Session', 'Router', 'Database', 'Auth', 'Controller'];
         foreach ($coreClasses as $class) {
-            $file = __DIR__ . "/core/{$class}.php";
+            $file = ROOT_PATH . "/core/{$class}.php";
             if (file_exists($file)) {
                 require_once $file;
             }
@@ -113,7 +182,7 @@ jobs:
         
         $modelClasses = ['User', 'Account', 'AccountType', 'Category', 'Transaction', 'Budget', 'SavingsGoal'];
         foreach ($modelClasses as $class) {
-            $file = __DIR__ . "/models/{$class}.php";
+            $file = ROOT_PATH . "/models/{$class}.php";
             if (file_exists($file)) {
                 require_once $file;
             }
@@ -121,10 +190,25 @@ jobs:
         
         $controllerClasses = ['AuthController', 'DashboardController', 'TransactionController', 'AccountController'];
         foreach ($controllerClasses as $class) {
-            $file = __DIR__ . "/controllers/{$class}.php";
+            $file = ROOT_PATH . "/controllers/{$class}.php";
             if (file_exists($file)) {
                 require_once $file;
             }
+        }
+        
+        // Class alias voor backward compatibility
+        // Dit zorgt ervoor dat klassen zonder namespace ook beschikbaar zijn met namespace
+        class_alias('Router', 'App\\Core\\Router');
+        class_alias('Session', 'App\\Core\\Session');
+        class_alias('Database', 'App\\Core\\Database');
+        class_alias('Auth', 'App\\Core\\Auth');
+        
+        // Controleer of de core klassen bestaan
+        if (!class_exists('App\\Core\\Router') && !class_exists('Router')) {
+            error_log("KRITIEKE FOUT: Router class niet gevonden na autoloading!");
+        }
+        if (!class_exists('App\\Core\\Session') && !class_exists('Session')) {
+            error_log("KRITIEKE FOUT: Session class niet gevonden na autoloading!");
         }
         EOL
         
@@ -306,7 +390,25 @@ jobs:
                     echo "<!--DEBUG: Probeer alternatieve autoloader-->";
                     require_once ROOT_PATH . '/alt_autoload.php';
                     echo "<!--DEBUG: Alternatieve autoloader geladen-->";
-                    $autoloadSuccess = true;
+                    
+                    // Controleer of de alternatieve autoloader heeft gewerkt
+                    if (class_exists('\\App\\Core\\Router') && class_exists('\\App\\Core\\Session')) {
+                        $autoloadSuccess = true;
+                        echo "<!--DEBUG: Classes direct gevonden via alternatieve autoloader-->";
+                    } else {
+                        echo "<!--DEBUG: Classes nog niet gevonden, laad override class aliases-->";
+                        // Probeer extra class alias helpers te laden
+                        if (file_exists(ROOT_PATH . '/override_class_alias.php')) {
+                            require_once ROOT_PATH . '/override_class_alias.php';
+                            echo "<!--DEBUG: Class alias helpers geladen-->";
+                            
+                            // Check opnieuw
+                            if (class_exists('\\App\\Core\\Router') && class_exists('\\App\\Core\\Session')) {
+                                $autoloadSuccess = true;
+                                echo "<!--DEBUG: Classes gevonden na class aliases-->";
+                            }
+                        }
+                    }
                 } catch (Exception $e) {
                     echo "<!--DEBUG: Fout bij laden alternatieve autoloader: " . $e->getMessage() . "-->";
                 }
@@ -699,6 +801,12 @@ jobs:
         - /info.php - Voor gedetailleerde PHP-informatie
         - /debug.php - Voor diagnose van classeladerproblemen
         EOL
+        
+        # Kopieer ook ons debug script
+        if [ -f "simple_debug.php" ]; then
+          echo "Stap 9: Debug script kopiëren"
+          cp simple_debug.php deploy_all/
+        fi
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -722,3 +830,88 @@ jobs:
 #    - FTP_SERVER: ftp.sunshine.be
 #    - FTP_USERNAME: jouw-ftp-gebruikersnaam
 #    - FTP_PASSWORD: jouw-ftp-wachtwoord
+
+# Maak een bestand dat class_alias calls genereert nadat alle classes zijn ingeladen
+        echo "Stap 10: Class alias bestand maken"
+        cat > deploy_all/override_class_alias.php << 'EOL'
+        <?php
+        /**
+         * Dit bestand definieert class aliases om namespace problemen op te lossen
+         * 
+         * Dit script moet worden ingeladen NADAT alle classes geladen zijn
+         */
+        
+        // Functie om alle klassen te verzamelen en aliases aan te maken
+        function create_all_class_aliases() {
+            // Verzamel alle geladen klassen
+            $loadedClasses = get_declared_classes();
+            $coreNamespacePrefix = 'App\\Core\\';
+            $controllerNamespacePrefix = 'App\\Controllers\\';
+            $modelNamespacePrefix = 'App\\Models\\';
+            
+            $aliasesCreated = 0;
+            
+            foreach ($loadedClasses as $className) {
+                // Check voor core klassen met namespace en maak ook een niet-namespace versie
+                if (strpos($className, $coreNamespacePrefix) === 0) {
+                    $shortName = substr($className, strlen($coreNamespacePrefix));
+                    
+                    // Als de niet-namespace versie nog niet bestaat, definieer deze
+                    if (!class_exists($shortName, false)) {
+                        class_alias($className, $shortName);
+                        $aliasesCreated++;
+                    }
+                }
+                // Check voor controller klassen met namespace
+                else if (strpos($className, $controllerNamespacePrefix) === 0) {
+                    $shortName = substr($className, strlen($controllerNamespacePrefix));
+                    
+                    // Als de niet-namespace versie nog niet bestaat, definieer deze
+                    if (!class_exists($shortName, false)) {
+                        class_alias($className, $shortName);
+                        $aliasesCreated++;
+                    }
+                }
+                // Check voor model klassen met namespace
+                else if (strpos($className, $modelNamespacePrefix) === 0) {
+                    $shortName = substr($className, strlen($modelNamespacePrefix));
+                    
+                    // Als de niet-namespace versie nog niet bestaat, definieer deze
+                    if (!class_exists($shortName, false)) {
+                        class_alias($className, $shortName);
+                        $aliasesCreated++;
+                    }
+                }
+                // Check ook niet-namespace klassen en maak namespace versies
+                else if (in_array($className, ['Router', 'Session', 'Database', 'Auth', 'Controller'])) {
+                    if (!class_exists($coreNamespacePrefix . $className, false)) {
+                        class_alias($className, $coreNamespacePrefix . $className);
+                        $aliasesCreated++;
+                    }
+                }
+                // Check controllers zonder namespace
+                else if (strpos($className, 'Controller') !== false && strpos($className, '\\') === false) {
+                    if (!class_exists($controllerNamespacePrefix . $className, false)) {
+                        class_alias($className, $controllerNamespacePrefix . $className);
+                        $aliasesCreated++;
+                    }
+                }
+            }
+            
+            return $aliasesCreated;
+        }
+        
+        // Voer de alias creator function uit en log het resultaat
+        $count = create_all_class_aliases();
+        error_log("Class aliases aangemaakt voor $count klassen");
+        
+        // Specifieke aliassen voor kritieke klassen
+        if (class_exists('Router') && !class_exists('App\\Core\\Router')) {
+            class_alias('Router', 'App\\Core\\Router');
+            error_log("Geforceerde alias gemaakt voor Router naar App\\Core\\Router");
+        }
+        if (class_exists('Session') && !class_exists('App\\Core\\Session')) {
+            class_alias('Session', 'App\\Core\\Session');
+            error_log("Geforceerde alias gemaakt voor Session naar App\\Core\\Session");
+        }
+        EOL
