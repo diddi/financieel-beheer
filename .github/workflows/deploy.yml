@@ -19,255 +19,204 @@ jobs:
         # Debug mode
         set -x
         
-        # Eenvoudige approach: alles in één map
-        echo "Stap 1: Mappen aanmaken"
+        # Maak de deployment directory
+        echo "Stap 1: Deployment directory aanmaken"
         mkdir -p deploy_all
-        mkdir -p deploy_all/controllers
-        mkdir -p deploy_all/models
-        mkdir -p deploy_all/views
+        
+        # Kopieer alle essentiële mappen en bestanden
+        echo "Stap 2: Bestanden kopiëren"
+        cp -r controllers deploy_all/
+        cp -r models deploy_all/
+        cp -r views deploy_all/
+        cp -r core deploy_all/
+        cp -r helpers deploy_all/
+        cp -r services deploy_all/
+        cp -r database deploy_all/
+        cp -r public/assets deploy_all/assets
+        cp -r public/css deploy_all/css
+        cp -r public/js deploy_all/js
+        cp autoload.php deploy_all/
+        
+        # Maak een aangepaste .htaccess
+        echo "Stap 3: Maak .htaccess bestand"
+        cat > deploy_all/.htaccess << 'EOL'
+        # Activeer rewrite engine
+        RewriteEngine On
+        
+        # Sta directorylistings niet toe
+        Options -Indexes
+        
+        # Omleiden alles naar index.php, behalve bestaande bestanden
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^(.*)$ index.php [QSA,L]
+        
+        # PHP-instellingen
+        php_flag display_errors off
+        php_value upload_max_filesize 10M
+        php_value post_max_size 10M
+        
+        # Voorkom toegang tot gevoelige bestanden
+        <FilesMatch "^\.">
+            Order allow,deny
+            Deny from all
+        </FilesMatch>
+        
+        # Beveilig config-bestanden
+        <FilesMatch "\.(env|config|ini|json|lock)$">
+            Order allow,deny
+            Deny from all
+        </FilesMatch>
+        EOL
+        
+        # Maak database configuratie (pas aan voor productie)
+        echo "Stap 4: Database configuratie maken"
         mkdir -p deploy_all/config
+        cat > deploy_all/config/database.php << 'EOL'
+        <?php
+        return [
+            'host' => 'localhost',
+            'dbname' => 'sunshine_geldbeheer',
+            'username' => 'sunshine_geldbeheer',
+            'password' => 'Veilig-2024', // Dit moet aangepast worden naar het echte wachtwoord
+            'charset' => 'utf8mb4'
+        ];
+        EOL
         
-        # Behoud de werkende testbestanden
-        echo "Stap 2: Werkende testbestanden behouden"
-        echo '<?php' > deploy_all/test.php
-        echo "echo '<h1>Test Pagina</h1>';" >> deploy_all/test.php
-        echo "echo '<p>De PHP-server werkt!</p>';" >> deploy_all/test.php
+        # Maak index.php bestand dat alle functionaliteit inlaadt
+        echo "Stap 5: Index.php maken"
+        cat > deploy_all/index.php << 'EOL'
+        <?php
+        // Definieer het pad naar de applicatie
+        define('ROOT_PATH', __DIR__);
         
-        echo '<?php' > deploy_all/info.php
-        echo "phpinfo();" >> deploy_all/info.php
+        // Laad de autoloader
+        require_once ROOT_PATH . '/autoload.php';
         
-        # Maak een eenvoudige config
-        echo "Stap 3: Config bestanden maken"
-        echo '<?php' > deploy_all/config/database.php
-        echo "return [" >> deploy_all/config/database.php
-        echo "    'host' => 'localhost'," >> deploy_all/config/database.php
-        echo "    'dbname' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
-        echo "    'username' => 'sunshine_geldbeheer'," >> deploy_all/config/database.php
-        echo "    'password' => 'JOUW_WACHTWOORD_HIER', // Dit moet je aanpassen!" >> deploy_all/config/database.php
-        echo "    'charset' => 'utf8mb4'" >> deploy_all/config/database.php
-        echo "];" >> deploy_all/config/database.php
+        // Gebruik de namespace
+        use App\Core\Router;
+        use App\Core\Session;
         
-        # Maak een eenvoudige controller
-        echo "Stap 4: Controller maken"
-        echo '<?php' > deploy_all/controllers/HomeController.php
-        echo "// Eenvoudige Home Controller" >> deploy_all/controllers/HomeController.php
-        echo "class HomeController {" >> deploy_all/controllers/HomeController.php
-        echo "    public function index() {" >> deploy_all/controllers/HomeController.php
-        echo "        // Toon de homepagina" >> deploy_all/controllers/HomeController.php
-        echo "        include 'views/header.php';" >> deploy_all/controllers/HomeController.php
-        echo "        include 'views/home.php';" >> deploy_all/controllers/HomeController.php
-        echo "        include 'views/footer.php';" >> deploy_all/controllers/HomeController.php
-        echo "    }" >> deploy_all/controllers/HomeController.php
-        echo "}" >> deploy_all/controllers/HomeController.php
+        // Start sessie
+        Session::start();
         
-        # Maak eenvoudige view bestanden
-        echo "Stap 5: Views maken"
-        echo '<!DOCTYPE html>' > deploy_all/views/header.php
-        echo '<html lang="nl">' >> deploy_all/views/header.php
-        echo '<head>' >> deploy_all/views/header.php
-        echo '    <meta charset="UTF-8">' >> deploy_all/views/header.php
-        echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> deploy_all/views/header.php
-        echo '    <title>Financieel Beheer</title>' >> deploy_all/views/header.php
-        echo '    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">' >> deploy_all/views/header.php
-        echo '</head>' >> deploy_all/views/header.php
-        echo '<body>' >> deploy_all/views/header.php
-        echo '<div class="container mt-4">' >> deploy_all/views/header.php
+        // Maak router-instantie
+        $router = new Router();
         
-        echo '<h1 class="mb-4">Welkom bij Financieel Beheer</h1>' > deploy_all/views/home.php
-        echo '<div class="alert alert-info">' >> deploy_all/views/home.php
-        echo '    <strong>Status:</strong> Deze versie is een vereenvoudigde versie om de MVC-structuur te testen.' >> deploy_all/views/home.php
-        echo '</div>' >> deploy_all/views/home.php
-        echo '' >> deploy_all/views/home.php
-        echo '<div class="row">' >> deploy_all/views/home.php
-        echo '    <div class="col-md-6">' >> deploy_all/views/home.php
-        echo '        <div class="card mb-4">' >> deploy_all/views/home.php
-        echo '            <div class="card-header">Snelkoppelingen</div>' >> deploy_all/views/home.php
-        echo '            <div class="card-body">' >> deploy_all/views/home.php
-        echo '                <ul class="list-group">' >> deploy_all/views/home.php
-        echo '                    <li class="list-group-item"><a href="test.php">Test Pagina</a></li>' >> deploy_all/views/home.php
-        echo '                    <li class="list-group-item"><a href="info.php">PHP Info</a></li>' >> deploy_all/views/home.php
-        echo '                </ul>' >> deploy_all/views/home.php
-        echo '            </div>' >> deploy_all/views/home.php
-        echo '        </div>' >> deploy_all/views/home.php
-        echo '    </div>' >> deploy_all/views/home.php
-        echo '    <div class="col-md-6">' >> deploy_all/views/home.php
-        echo '        <div class="card mb-4">' >> deploy_all/views/home.php
-        echo '            <div class="card-header">Info</div>' >> deploy_all/views/home.php
-        echo '            <div class="card-body">' >> deploy_all/views/home.php
-        echo '                <p>Dit is een vereenvoudigde versie van de applicatie.</p>' >> deploy_all/views/home.php
-        echo '                <p>De volledige versie volgt binnenkort!</p>' >> deploy_all/views/home.php
-        echo '            </div>' >> deploy_all/views/home.php
-        echo '        </div>' >> deploy_all/views/home.php
-        echo '    </div>' >> deploy_all/views/home.php
-        echo '</div>' >> deploy_all/views/home.php
+        // Definieer routes (deze moeten overeenkomen met de routes in public/index.php)
+        // Authentication routes
+        $router->register('/', ['controller' => 'DashboardController', 'action' => 'index']);
+        $router->register('/login', ['controller' => 'AuthController', 'action' => 'login']);
+        $router->register('/register', ['controller' => 'AuthController', 'action' => 'register']);
+        $router->register('/logout', ['controller' => 'AuthController', 'action' => 'logout']);
+        $router->register('/profile', ['controller' => 'AuthController', 'action' => 'profile']);
+        $router->register('/profile/update', ['controller' => 'AuthController', 'action' => 'updateProfile'], 'POST');
+        $router->register('/profile/change-password', ['controller' => 'AuthController', 'action' => 'changePassword'], 'POST');
+        $router->register('/forgot-password', ['controller' => 'AuthController', 'action' => 'forgotPassword']);
+        $router->register('/reset-password', ['controller' => 'AuthController', 'action' => 'resetPassword'], 'POST');
         
-        echo '</div>' > deploy_all/views/footer.php
-        echo '<footer class="mt-5 mb-3 text-center text-muted">' >> deploy_all/views/footer.php
-        echo '    <p>&copy; 2023 Financieel Beheer</p>' >> deploy_all/views/footer.php
-        echo '</footer>' >> deploy_all/views/footer.php
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>' >> deploy_all/views/footer.php
-        echo '</body>' >> deploy_all/views/footer.php
-        echo '</html>' >> deploy_all/views/footer.php
+        // Transaction routes
+        $router->register('/transactions', ['controller' => 'TransactionController', 'action' => 'index']);
+        $router->register('/transactions/create', ['controller' => 'TransactionController', 'action' => 'create']);
+        $router->register('/transactions/store', ['controller' => 'TransactionController', 'action' => 'store'], 'POST');
+        $router->register('/transactions/edit', ['controller' => 'TransactionController', 'action' => 'edit']);
+        $router->register('/transactions/update', ['controller' => 'TransactionController', 'action' => 'update'], 'POST');
+        $router->register('/transactions/delete', ['controller' => 'TransactionController', 'action' => 'delete']);
         
-        # Maak de index file die de home controller gebruikt
-        echo "Stap 6: Index maken die de controller gebruikt"
-        echo '<?php' > deploy_all/index.php
-        echo "// Laad de controller" >> deploy_all/index.php
-        echo "require_once 'controllers/HomeController.php';" >> deploy_all/index.php
-        echo "" >> deploy_all/index.php
-        echo "// Maak een instantie van de controller" >> deploy_all/index.php
-        echo "\$controller = new HomeController();" >> deploy_all/index.php
-        echo "\$controller->index();" >> deploy_all/index.php
+        // Account routes
+        $router->register('/accounts', ['controller' => 'AccountController', 'action' => 'index']);
+        $router->register('/accounts/create', ['controller' => 'AccountController', 'action' => 'create']);
+        $router->register('/accounts/store', ['controller' => 'AccountController', 'action' => 'store'], 'POST');
+        $router->register('/accounts/edit', ['controller' => 'AccountController', 'action' => 'edit']);
+        $router->register('/accounts/update', ['controller' => 'AccountController', 'action' => 'update'], 'POST');
+        $router->register('/accounts/delete', ['controller' => 'AccountController', 'action' => 'delete']);
         
-        # Database verbinding tester
-        echo "Stap 7: Database tester maken"
-        echo '<?php' > deploy_all/db_test.php
-        echo "// Test database verbinding" >> deploy_all/db_test.php
-        echo "echo '<h1>Database Verbindingstest</h1>';" >> deploy_all/db_test.php
-        echo "try {" >> deploy_all/db_test.php
-        echo "    \$config = require_once 'config/database.php';" >> deploy_all/db_test.php
-        echo "    echo '<p>Database configuratie geladen.</p>';" >> deploy_all/db_test.php
-        echo "    " >> deploy_all/db_test.php
-        echo "    \$dsn = \"mysql:host={\$config['host']};dbname={\$config['dbname']};charset={\$config['charset']}\";" >> deploy_all/db_test.php
-        echo "    \$pdo = new PDO(\$dsn, \$config['username'], \$config['password']);" >> deploy_all/db_test.php
-        echo "    \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);" >> deploy_all/db_test.php
-        echo "    " >> deploy_all/db_test.php
-        echo "    echo '<p style=\"color:green\">✓ Database verbinding succesvol!</p>';" >> deploy_all/db_test.php
-        echo "    echo '<p>Je kunt nu de <a href=\"index.php\">homepagina</a> bekijken.</p>';" >> deploy_all/db_test.php
-        echo "} catch (PDOException \$e) {" >> deploy_all/db_test.php
-        echo "    echo '<p style=\"color:red\">✗ Database fout: ' . \$e->getMessage() . '</p>';" >> deploy_all/db_test.php
-        echo "    echo '<p>Controleer of je het juiste wachtwoord hebt ingesteld in config/database.php.</p>';" >> deploy_all/db_test.php
-        echo "}" >> deploy_all/db_test.php
+        // Category routes
+        $router->register('/categories', ['controller' => 'CategoryController', 'action' => 'index']);
+        $router->register('/categories/create', ['controller' => 'CategoryController', 'action' => 'create']);
+        $router->register('/categories/store', ['controller' => 'CategoryController', 'action' => 'store'], 'POST');
+        $router->register('/categories/edit', ['controller' => 'CategoryController', 'action' => 'edit']);
+        $router->register('/categories/update', ['controller' => 'CategoryController', 'action' => 'update'], 'POST');
+        $router->register('/categories/delete', ['controller' => 'CategoryController', 'action' => 'delete']);
         
-        # .htaccess redirect bestand
-        echo "Stap 8: .htaccess maken"
-        echo 'RewriteEngine On' > deploy_all/.htaccess
-        echo 'RewriteBase /' >> deploy_all/.htaccess
-        echo '# PHP Fouten tonen' >> deploy_all/.htaccess
-        echo 'php_flag display_errors on' >> deploy_all/.htaccess
+        // Budget routes
+        $router->register('/budgets', ['controller' => 'BudgetController', 'action' => 'index']);
+        $router->register('/budgets/create', ['controller' => 'BudgetController', 'action' => 'create']);
+        $router->register('/budgets/store', ['controller' => 'BudgetController', 'action' => 'store'], 'POST');
+        $router->register('/budgets/edit', ['controller' => 'BudgetController', 'action' => 'edit']);
+        $router->register('/budgets/update', ['controller' => 'BudgetController', 'action' => 'update'], 'POST');
+        $router->register('/budgets/delete', ['controller' => 'BudgetController', 'action' => 'delete']);
         
-        # Verifieer de uiteindelijke structuur
-        echo "Stap 9: Finale structuur controleren"
-        find deploy_all -type f | sort
+        // Report routes
+        $router->register('/reports', ['controller' => 'ReportController', 'action' => 'index']);
+        $router->register('/reports/category', ['controller' => 'ReportController', 'action' => 'categoryDetail']);
         
-        echo "MVC structuur deployment bestanden voorbereid"
+        // Savings routes
+        $router->register('/savings', ['controller' => 'SavingsController', 'action' => 'index']);
+        $router->register('/savings/create', ['controller' => 'SavingsController', 'action' => 'create']);
+        $router->register('/savings/store', ['controller' => 'SavingsController', 'action' => 'store'], 'POST');
+        $router->register('/savings/show', ['controller' => 'SavingsController', 'action' => 'show']);
+        $router->register('/savings/edit', ['controller' => 'SavingsController', 'action' => 'edit']);
+        $router->register('/savings/update', ['controller' => 'SavingsController', 'action' => 'update'], 'POST');
+        $router->register('/savings/delete', ['controller' => 'SavingsController', 'action' => 'delete']);
+        $router->register('/savings/add-contribution', ['controller' => 'SavingsController', 'action' => 'addContribution'], 'POST');
+        $router->register('/savings/remove-contribution', ['controller' => 'SavingsController', 'action' => 'removeContribution']);
         
-        # Voeg de AuthController toe
-        echo "Stap 10: AuthController toevoegen"
-        echo '<?php' > deploy_all/controllers/AuthController.php
-        echo 'namespace App\\Controllers;' >> deploy_all/controllers/AuthController.php
-        echo '' >> deploy_all/controllers/AuthController.php
-        echo 'use App\\Core\\Auth;' >> deploy_all/controllers/AuthController.php
-        echo 'use App\\Core\\Controller;' >> deploy_all/controllers/AuthController.php
-        echo 'use App\\Core\\Session;' >> deploy_all/controllers/AuthController.php
-        echo 'use App\\Models\\User;' >> deploy_all/controllers/AuthController.php
-        echo '' >> deploy_all/controllers/AuthController.php
-        echo 'class AuthController extends Controller {' >> deploy_all/controllers/AuthController.php
-        echo '    public function login() {' >> deploy_all/controllers/AuthController.php
-        echo '        if (Auth::check()) {' >> deploy_all/controllers/AuthController.php
-        echo '            header("Location: /");' >> deploy_all/controllers/AuthController.php
-        echo '            exit;' >> deploy_all/controllers/AuthController.php
-        echo '        }' >> deploy_all/controllers/AuthController.php
-        echo '        ' >> deploy_all/controllers/AuthController.php
-        echo '        $error = "";' >> deploy_all/controllers/AuthController.php
-        echo '        ' >> deploy_all/controllers/AuthController.php
-        echo '        if ($_SERVER["REQUEST_METHOD"] === "POST") {' >> deploy_all/controllers/AuthController.php
-        echo '            $email = $_POST["email"] ?? "";' >> deploy_all/controllers/AuthController.php
-        echo '            $password = $_POST["password"] ?? "";' >> deploy_all/controllers/AuthController.php
-        echo '            ' >> deploy_all/controllers/AuthController.php
-        echo '            if (empty($email) || empty($password)) {' >> deploy_all/controllers/AuthController.php
-        echo '                $error = "Vul je e-mailadres en wachtwoord in";' >> deploy_all/controllers/AuthController.php
-        echo '            } else {' >> deploy_all/controllers/AuthController.php
-        echo '                $success = Auth::login($email, $password);' >> deploy_all/controllers/AuthController.php
-        echo '                ' >> deploy_all/controllers/AuthController.php
-        echo '                if ($success) {' >> deploy_all/controllers/AuthController.php
-        echo '                    $redirectUrl = $_SESSION["redirect_url"] ?? "/";' >> deploy_all/controllers/AuthController.php
-        echo '                    unset($_SESSION["redirect_url"]);' >> deploy_all/controllers/AuthController.php
-        echo '                    header("Location: " . $redirectUrl);' >> deploy_all/controllers/AuthController.php
-        echo '                    exit;' >> deploy_all/controllers/AuthController.php
-        echo '                } else {' >> deploy_all/controllers/AuthController.php
-        echo '                    $error = "Ongeldige inloggegevens";' >> deploy_all/controllers/AuthController.php
-        echo '                }' >> deploy_all/controllers/AuthController.php
-        echo '            }' >> deploy_all/controllers/AuthController.php
-        echo '        }' >> deploy_all/controllers/AuthController.php
-        echo '        ' >> deploy_all/controllers/AuthController.php
-        echo '        $render = $this->startBuffering("Inloggen", true);' >> deploy_all/controllers/AuthController.php
-        echo '        ' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"sm:mx-auto sm:w-full sm:max-w-md\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<h2 class=\"mt-6 text-center text-3xl font-bold tracking-tight text-gray-900\">Inloggen</h2>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"mt-8 sm:mx-auto sm:w-full sm:max-w-md\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<form class=\"space-y-6\" action=\"/login\" method=\"POST\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<label for=\"email\" class=\"block text-sm font-medium text-gray-700\">E-mailadres</label>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"mt-1\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<input id=\"email\" name=\"email\" type=\"email\" autocomplete=\"email\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<label for=\"password\" class=\"block text-sm font-medium text-gray-700\">Wachtwoord</label>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"mt-1\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"flex items-center justify-between\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"flex items-center\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<input id=\"remember-me\" name=\"remember-me\" type=\"checkbox\" class=\"h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<label for=\"remember-me\" class=\"ml-2 block text-sm text-gray-900\">Onthoud mij</label>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"text-sm\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<a href=\"#\" class=\"font-medium text-indigo-600 hover:text-indigo-500\">Wachtwoord vergeten?</a>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<button type=\"submit\" class=\"w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500\">Inloggen</button>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</form>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"mt-6\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"relative\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"absolute inset-0 flex items-center\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"w-full border-t border-gray-300\"></div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"relative flex justify-center text-sm\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<span class=\"px-2 bg-white text-gray-500\">Of</span>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<div class=\"mt-6\">";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "<a href=\"/register\" class=\"w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-indigo-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500\">Maak een account aan</a>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        echo "</div>";' >> deploy_all/controllers/AuthController.php
-        echo '        $render();' >> deploy_all/controllers/AuthController.php
-        echo '    }' >> deploy_all/controllers/AuthController.php
-        echo '}' >> deploy_all/controllers/AuthController.php
+        // Export routes
+        $router->register('/export', ['controller' => 'ExportController', 'action' => 'index']);
+        $router->register('/export/transactions', ['controller' => 'ExportController', 'action' => 'exportTransactions'], 'POST');
+        $router->register('/export/budgets', ['controller' => 'ExportController', 'action' => 'exportBudgets'], 'POST');
+        $router->register('/export/accounts', ['controller' => 'ExportController', 'action' => 'exportAccounts'], 'POST');
+        $router->register('/export/download', ['controller' => 'ExportController', 'action' => 'download']);
         
-        # Voeg routes toe voor login, registratie en logout
-        echo "Stap 11: Routes instellen"
-        echo '<?php' > deploy_all/routes.php
-        echo "// Routes voor authenticatie" >> deploy_all/routes.php
-        echo "require_once 'controllers/AuthController.php';" >> deploy_all/routes.php
-        echo "" >> deploy_all/routes.php
-        echo "\$authController = new AuthController();" >> deploy_all/routes.php
-        echo "" >> deploy_all/routes.php
-        echo "if (\$_SERVER['REQUEST_URI'] === '/login') {" >> deploy_all/routes.php
-        echo "    \$authController->login();" >> deploy_all/routes.php
-        echo "} elseif (\$_SERVER['REQUEST_URI'] === '/register') {" >> deploy_all/routes.php
-        echo "    // Voeg registratie functionaliteit toe" >> deploy_all/routes.php
-        echo "} elseif (\$_SERVER['REQUEST_URI'] === '/logout') {" >> deploy_all/routes.php
-        echo "    // Voeg logout functionaliteit toe" >> deploy_all/routes.php
-        echo "} else {" >> deploy_all/routes.php
-        echo "    // Voeg andere routes toe" >> deploy_all/routes.php
-        echo "}" >> deploy_all/routes.php
+        // Notification routes
+        $router->register('/notifications', ['controller' => 'NotificationController', 'action' => 'index']);
+        $router->register('/notifications/mark-read', ['controller' => 'NotificationController', 'action' => 'markAsRead'], 'POST');
+        $router->register('/notifications/mark-all-read', ['controller' => 'NotificationController', 'action' => 'markAllAsRead'], 'POST');
+        $router->register('/notifications/count', ['controller' => 'NotificationController', 'action' => 'getUnreadCount']);
         
-        # Update index.php om routes te gebruiken
-        echo "Stap 12: Index bijwerken om routes te gebruiken"
-        echo '<?php' > deploy_all/index.php
-        echo "// Laad routes" >> deploy_all/index.php
-        echo "require_once 'routes.php';" >> deploy_all/index.php
+        // Recurring transaction routes
+        $router->register('/recurring', ['controller' => 'RecurringTransactionController', 'action' => 'index']);
+        $router->register('/recurring/create', ['controller' => 'RecurringTransactionController', 'action' => 'create']);
+        $router->register('/recurring/store', ['controller' => 'RecurringTransactionController', 'action' => 'store'], 'POST');
+        $router->register('/recurring/edit', ['controller' => 'RecurringTransactionController', 'action' => 'edit']);
+        $router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
+        $router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
+        
+        // Dispatch de route
+        $router->dispatch();
+        EOL
+        
+        # Behoud een paar testbestanden voor debugging
+        echo "Stap 6: Testbestanden aanmaken"
+        cat > deploy_all/test.php << 'EOL'
+        <?php
+        echo '<h1>Test Pagina</h1>';
+        echo '<p>De PHP-server werkt!</p>';
+        ?>
+        EOL
+        
+        cat > deploy_all/info.php << 'EOL'
+        <?php
+        phpinfo();
+        ?>
+        EOL
+        
+        echo "Stap 7: Readme toevoegen"
+        cat > deploy_all/README.txt << 'EOL'
+        Financieel Beheer Applicatie
+        ===========================
+        
+        Deze applicatie is gedeployed via GitHub Actions.
+        
+        Bezoek de volgende URL's om te beginnen:
+        - /login - Om in te loggen
+        - /register - Om een account aan te maken
+        
+        Testpagina's:
+        - /test.php - Om te controleren of PHP werkt
+        - /info.php - Voor gedetailleerde PHP-informatie
+        EOL
     
     - name: FTP Deploy All Files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
