@@ -267,9 +267,14 @@ class BudgetController extends Controller {
             
             // Resterende dagen
             $currentDate = new \DateTime();
-            $endDate = new \DateTime(end($budgetStatus)['end_date']);
+            // Controleer of end_date bestaat voordat we het gebruiken
+            $endDateValue = isset(end($budgetStatus)['end_date']) ? end($budgetStatus)['end_date'] : date('Y-m-d');
+            $endDate = new \DateTime($endDateValue);
+            
+            // Controleer of start_date bestaat voordat we het gebruiken
+            $startDateValue = isset($budgetStatus[0]['start_date']) ? $budgetStatus[0]['start_date'] : date('Y-m-d');
             $daysRemaining = $currentDate->diff($endDate)->days;
-            $totalDays = (new \DateTime($budgetStatus[0]['start_date']))->diff($endDate)->days;
+            $totalDays = (new \DateTime($startDateValue))->diff($endDate)->days;
             $percentageDays = $totalDays > 0 ? min(100, round((($totalDays - $daysRemaining) / $totalDays) * 100)) : 0;
             
             echo "

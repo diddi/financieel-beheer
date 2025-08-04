@@ -7,6 +7,10 @@
   "background_color": "#ffffff",
   "theme_color": "#2563EB",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "nl",
+  "dir": "ltr",
+  "categories": ["finance", "productivity"],
   "icons": [
     {
       "src": "/assets/images/app-icon-192.png",
@@ -19,6 +23,28 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/images/app-icon-192.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "apple touch icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nieuwe transactie",
+      "short_name": "Transactie",
+      "description": "Voeg een nieuwe transactie toe",
+      "url": "/transactions/create",
+      "icons": [{"src": "/assets/images/app-icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Overzicht",
+      "description": "Bekijk je financieel overzicht",
+      "url": "/",
+      "icons": [{"src": "/assets/images/app-icon-192.png", "sizes": "192x192"}]
     }
   ]
 } 

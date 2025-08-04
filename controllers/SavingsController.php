@@ -785,13 +785,18 @@ class SavingsController extends Controller {
                 if ($goal['current_amount'] >= $goal['target_amount']) {
                     $cardClass = 'border-green-500';
                     $progressBarColor = 'bg-green-500';
-                } elseif ($stats['percentage'] >= 75) {
+                } elseif (isset($stats['percentage']) && $stats['percentage'] >= 75) {
                     $cardClass = 'border-yellow-500';
                     $progressBarColor = 'bg-yellow-500';
-                } elseif ($stats['is_overdue']) {
+                } elseif (isset($stats['is_overdue']) && $stats['is_overdue']) {
                     $cardClass = 'border-red-500';
                     $progressBarColor = 'bg-red-500';
                 }
+                
+                // Zorg ervoor dat alle benodigde keys bestaan
+                if (!isset($stats['percentage'])) $stats['percentage'] = 0;
+                if (!isset($stats['is_overdue'])) $stats['is_overdue'] = false;
+                if (!isset($stats['days_left'])) $stats['days_left'] = null;
                 
                 // Bouw de kaart voor elk spaardoel
                 echo "

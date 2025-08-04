@@ -1,0 +1,27 @@
+RewriteEngine On
+
+# Zorg ervoor dat symbolische links gevolgd worden
+Options +FollowSymLinks
+
+# Redirect alle requests naar index.php behalve voor bestaande bestanden/directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Voeg HTTP Strict Transport Security header toe (voor HTTPS)
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# Voorkom toegang tot .htaccess
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Voorkom directory listing
+Options -Indexes
+
+# Stel de juiste charset en content-type headers in
+AddDefaultCharset UTF-8
+DefaultLanguage nl-NL 

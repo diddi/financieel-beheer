@@ -44,61 +44,77 @@ $demoPassword = 'welkom123';
 try {
     $existingUser = User::getByEmail($demoEmail);
     if ($existingUser) {
-        echo "Bestaande demo gebruiker gevonden. Verwijderen van gerelateerde data...\n";
-        $db->query("DELETE FROM transactions WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM categories WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM accounts WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM budgets WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM savings_goals WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM savings_contributions WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM recurring_transactions WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM notifications WHERE user_id = ?", [$existingUser['id']]);
-        $db->query("DELETE FROM users WHERE id = ?", [$existingUser['id']]);
-        echo "✓ Oude demo data verwijderd.\n";
+        echo "Bestaande demo gebruiker gevonden. Hergebruiken van gebruiker voor nieuwe testdata...\n";
+        $userId = $existingUser['id'];
+        
+        // Verwijder eventuele bestaande testdata
+        try {
+            $db->query("DELETE FROM transactions WHERE user_id = ?", [$userId]);
+            $db->query("DELETE FROM budgets WHERE user_id = ?", [$userId]);
+            $db->query("DELETE FROM recurring_transactions WHERE user_id = ?", [$userId]);
+            $db->query("DELETE FROM savings_goals WHERE user_id = ?", [$userId]);
+            $db->query("DELETE FROM notifications WHERE user_id = ?", [$userId]);
+            echo "✓ Bestaande testdata verwijderd voor gebruiker $demoUsername (ID: $userId)\n";
+        } catch (Exception $e) {
+            echo "⚠️ Waarschuwing bij verwijderen bestaande demo data: " . $e->getMessage() . "\n";
+        }
+    } else {
+        // Maak een nieuwe demo gebruiker aan
+        try {
+            $userId = User::create([
+                'username' => $demoUsername,
+                'email' => $demoEmail,
+                'password' => password_hash($demoPassword, PASSWORD_DEFAULT),
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+            echo "✓ Demo gebruiker aangemaakt met ID: $userId\n";
+        } catch (Exception $e) {
+            die("❌ Fout bij aanmaken demo gebruiker: " . $e->getMessage() . "\n");
+        }
     }
 } catch (Exception $e) {
     echo "⚠️ Waarschuwing bij verwijderen bestaande demo data: {$e->getMessage()}\n";
 }
 
-// Maak nieuwe demo gebruiker
+// Maak test data aan
 try {
-    $userId = User::create([
-        'username' => $demoUsername,
-        'email' => $demoEmail,
-        'password' => password_hash($demoPassword, PASSWORD_DEFAULT)
-    ]);
-    echo "✓ Demo gebruiker aangemaakt (ID: $userId).\n";
+    // Maak demo rekeningen
+    $accountIds = createDemoAccounts($userId);
+    echo "✓ Demo rekeningen aangemaakt.\n";
+    
+    // Maak demo categorieën
+    $categoryIds = createDemoCategories($userId);
+    echo "✓ Demo categorieën aangemaakt.\n";
+    
+    // Maak demo transacties
+    $transactionsCount = createDemoTransactions($userId, $accountIds, $categoryIds);
+    echo "✓ Demo transacties aangemaakt.\n";
+    
+    // Maak demo budgetten
+    $budgetsCount = createDemoBudgets($userId, $categoryIds);
+    echo "✓ Demo budgetten aangemaakt.\n";
+    
+    // Maak demo spaardoelen
+    $savingsCount = createDemoSavings($userId, $accountIds);
+    echo "✓ Demo spaardoelen aangemaakt.\n";
+    
+    // Maak demo terugkerende transacties
+    $recurringCount = createDemoRecurringTransactions($userId, $accountIds, $categoryIds);
+    echo "✓ Demo terugkerende transacties aangemaakt.\n";
+    
+    // Notificaties overslaan omdat Notification::create niet bestaat
+    // $notificationsCount = createDemoNotifications($userId);
+    // echo "✓ Demo notificaties aangemaakt.\n";
+    
+    echo "\n✓ Setup volledig voltooid met:\n";
+    echo "  - $transactionsCount transacties\n";
+    echo "  - $budgetsCount budgetten\n";
+    echo "  - $savingsCount spaardoelen\n";
+    echo "  - $recurringCount terugkerende transacties\n";
+    
 } catch (Exception $e) {
-    die("❌ Fout bij aanmaken demo gebruiker: {$e->getMessage()}\n");
+    echo "❌ Fout bij aanmaken demo data: " . $e->getMessage() . "\n";
 }
-
-// Maak demo rekeningen
-$accountIds = createDemoAccounts($userId);
-echo "✓ Demo rekeningen aangemaakt.\n";
-
-// Maak demo categorieën
-$categoryIds = createDemoCategories($userId);
-echo "✓ Demo categorieën aangemaakt.\n";
-
-// Maak demo transacties
-createDemoTransactions($userId, $accountIds, $categoryIds);
-echo "✓ Demo transacties aangemaakt.\n";
-
-// Maak demo budgetten
-createDemoBudgets($userId, $categoryIds);
-echo "✓ Demo budgetten aangemaakt.\n";
-
-// Maak demo spaardoelen
-createDemoSavings($userId, $accountIds);
-echo "✓ Demo spaardoelen aangemaakt.\n";
-
-// Maak demo terugkerende transacties
-createDemoRecurringTransactions($userId, $accountIds, $categoryIds);
-echo "✓ Demo terugkerende transacties aangemaakt.\n";
-
-// Maak demo notificaties
-createDemoNotifications($userId);
-echo "✓ Demo notificaties aangemaakt.\n";
 
 echo "\n✅ Demo data installatie voltooid!\n";
 echo "Inloggegevens:\n";
@@ -392,41 +408,57 @@ function createDemoTransactions($userId, $accountIds, $categoryIds) {
  * Maak demo budgetten aan
  */
 function createDemoBudgets($userId, $categoryIds) {
-    // Huidige maand en jaar
-    $currentMonth = date('m');
-    $currentYear = date('Y');
+    // Huidige datum en begindatum van de maand
+    $currentDate = date('Y-m-d');
+    $startOfMonth = date('Y-m-01');
+    $endOfMonth = date('Y-m-t');
     
     // Budgetten voor de huidige maand
     $budgets = [
         [
             'category_id' => $categoryIds['Boodschappen'],
             'amount' => 500.00,
-            'month' => $currentMonth,
-            'year' => $currentYear
+            'period' => 'monthly',
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'is_active' => true,
+            'alert_threshold' => 80
         ],
         [
             'category_id' => $categoryIds['Wonen'],
             'amount' => 1400.00,
-            'month' => $currentMonth,
-            'year' => $currentYear
+            'period' => 'monthly',
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'is_active' => true,
+            'alert_threshold' => 80
         ],
         [
             'category_id' => $categoryIds['Transport'],
             'amount' => 200.00,
-            'month' => $currentMonth,
-            'year' => $currentYear
+            'period' => 'monthly',
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'is_active' => true,
+            'alert_threshold' => 80
         ],
         [
             'category_id' => $categoryIds['Eten & Drinken'],
             'amount' => 300.00,
-            'month' => $currentMonth,
-            'year' => $currentYear
+            'period' => 'monthly',
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'is_active' => true,
+            'alert_threshold' => 80
         ],
         [
             'category_id' => $categoryIds['Abonnementen'],
             'amount' => 100.00,
-            'month' => $currentMonth,
-            'year' => $currentYear
+            'period' => 'monthly',
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'is_active' => true,
+            'alert_threshold' => 80
         ]
     ];
     
@@ -443,60 +475,44 @@ function createDemoBudgets($userId, $categoryIds) {
  * Maak demo spaardoelen aan
  */
 function createDemoSavings($userId, $accountIds) {
-    $spaarRekeningId = $accountIds[1]; // Spaarrekening
-    
     // Spaardoelen
     $goals = [
         [
             'name' => 'Vakantie',
             'target_amount' => 2500.00,
             'current_amount' => 750.00,
+            'start_date' => date('Y-m-d'),
             'target_date' => date('Y-m-d', strtotime('+6 months')),
-            'account_id' => $spaarRekeningId,
             'description' => 'Zomervakantie naar Italië',
-            'icon' => 'beach_access'
+            'icon' => 'beach_access',
+            'color' => '#2196F3'
         ],
         [
             'name' => 'Nieuwe laptop',
             'target_amount' => 1200.00,
             'current_amount' => 900.00,
+            'start_date' => date('Y-m-d'),
             'target_date' => date('Y-m-d', strtotime('+2 months')),
-            'account_id' => $spaarRekeningId,
             'description' => 'Professionele laptop voor werk',
-            'icon' => 'laptop'
+            'icon' => 'laptop',
+            'color' => '#9C27B0'
         ],
         [
             'name' => 'Noodfonds',
             'target_amount' => 5000.00,
             'current_amount' => 3500.00,
-            'target_date' => null,
-            'account_id' => $spaarRekeningId,
+            'start_date' => date('Y-m-d'),
+            'target_date' => date('Y-m-d', strtotime('+12 months')),
             'description' => 'Voor onverwachte uitgaven',
-            'icon' => 'savings'
+            'icon' => 'savings',
+            'color' => '#4CAF50'
         ]
     ];
     
     // Voeg spaardoelen toe
     foreach ($goals as $goal) {
         $goal['user_id'] = $userId;
-        $goalId = SavingsGoal::create($goal);
-        
-        // Voeg ook enkele bijdragen toe
-        if ($goalId) {
-            // Twee bijdragen in het verleden
-            for ($i = 1; $i <= 2; $i++) {
-                $contributionDate = date('Y-m-d', strtotime("-$i months"));
-                $contributionAmount = rand(10000, 25000) / 100; // 100-250 euro
-                
-                SavingsGoal::addContribution([
-                    'goal_id' => $goalId,
-                    'user_id' => $userId,
-                    'amount' => $contributionAmount,
-                    'date' => $contributionDate,
-                    'description' => "Maandelijkse bijdrage"
-                ]);
-            }
-        }
+        SavingsGoal::create($goal);
     }
     
     return count($goals);
@@ -517,10 +533,10 @@ function createDemoRecurringTransactions($userId, $accountIds, $categoryIds) {
             'type' => 'income',
             'description' => 'Salaris',
             'frequency' => 'monthly',
-            'interval' => 1,
             'start_date' => date('Y-m-d', strtotime('first day of this month')),
             'end_date' => null,
-            'next_date' => date('Y-m-d', strtotime('25th day of this month'))
+            'next_due_date' => date('Y-m-d', strtotime('25th day of this month')),
+            'is_active' => 1
         ],
         [
             'account_id' => $mainAccountId,
@@ -529,10 +545,10 @@ function createDemoRecurringTransactions($userId, $accountIds, $categoryIds) {
             'type' => 'expense',
             'description' => 'Huur',
             'frequency' => 'monthly',
-            'interval' => 1,
             'start_date' => date('Y-m-d', strtotime('first day of this month')),
             'end_date' => null,
-            'next_date' => date('Y-m-d', strtotime('first day of next month'))
+            'next_due_date' => date('Y-m-d', strtotime('first day of next month')),
+            'is_active' => 1
         ],
         [
             'account_id' => $mainAccountId,
@@ -541,10 +557,10 @@ function createDemoRecurringTransactions($userId, $accountIds, $categoryIds) {
             'type' => 'expense',
             'description' => 'Netflix',
             'frequency' => 'monthly',
-            'interval' => 1,
             'start_date' => date('Y-m-d', strtotime('-2 months')),
             'end_date' => null,
-            'next_date' => date('Y-m-d', strtotime('15th day of this month'))
+            'next_due_date' => date('Y-m-d', strtotime('15th day of this month')),
+            'is_active' => 1
         ],
         [
             'account_id' => $mainAccountId,
@@ -553,10 +569,10 @@ function createDemoRecurringTransactions($userId, $accountIds, $categoryIds) {
             'type' => 'expense',
             'description' => 'Spotify',
             'frequency' => 'monthly',
-            'interval' => 1,
             'start_date' => date('Y-m-d', strtotime('-3 months')),
             'end_date' => null,
-            'next_date' => date('Y-m-d', strtotime('20th day of this month'))
+            'next_due_date' => date('Y-m-d', strtotime('20th day of this month')),
+            'is_active' => 1
         ],
         [
             'account_id' => $mainAccountId,
@@ -565,10 +581,10 @@ function createDemoRecurringTransactions($userId, $accountIds, $categoryIds) {
             'type' => 'expense',
             'description' => 'Energie',
             'frequency' => 'monthly',
-            'interval' => 1,
             'start_date' => date('Y-m-d', strtotime('-2 months')),
             'end_date' => null,
-            'next_date' => date('Y-m-d', strtotime('5th day of next month'))
+            'next_due_date' => date('Y-m-d', strtotime('5th day of next month')),
+            'is_active' => 1
         ]
     ];
     

@@ -69,27 +69,32 @@ class Router {
         http_response_code($code);
         
         if ($code === 404) {
-            // Show a more user-friendly 404 page
-            echo "
-            <html>
-            <head>
-                <title>Pagina niet gevonden</title>
-                <script src='https://cdn.tailwindcss.com'></script>
-            </head>
-            <body class='bg-gray-100 min-h-screen flex items-center justify-center'>
-                <div class='max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center'>
-                    <h1 class='text-3xl font-bold mb-4 text-red-500'>404</h1>
-                    <h2 class='text-2xl font-semibold mb-4'>Pagina niet gevonden</h2>
-                    <p class='mb-6 text-gray-600'>De opgevraagde pagina kon niet worden gevonden.</p>
-                    <div>
-                        <a href='/' class='inline-block bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded'>
-                            Terug naar home
-                        </a>
+            // Gebruik de aangepaste 404-pagina functie
+            if (function_exists('render404Page')) {
+                render404Page();
+            } else {
+                // Fallback naar eenvoudige 404 pagina als functie niet bestaat
+                echo "
+                <html>
+                <head>
+                    <title>Pagina niet gevonden</title>
+                    <script src='https://cdn.tailwindcss.com'></script>
+                </head>
+                <body class='bg-gray-100 min-h-screen flex items-center justify-center'>
+                    <div class='max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center'>
+                        <h1 class='text-3xl font-bold mb-4 text-red-500'>404</h1>
+                        <h2 class='text-2xl font-semibold mb-4'>Pagina niet gevonden</h2>
+                        <p class='mb-6 text-gray-600'>De opgevraagde pagina kon niet worden gevonden.</p>
+                        <div>
+                            <a href='/' class='inline-block bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded'>
+                                Terug naar home
+                            </a>
+                        </div>
                     </div>
-                </div>
-            </body>
-            </html>
-            ";
+                </body>
+                </html>
+                ";
+            }
         } else {
             echo "<h1>Error $code: $message</h1>";
         }

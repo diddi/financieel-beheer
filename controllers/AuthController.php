@@ -26,7 +26,7 @@ class AuthController extends Controller {
             if (empty($email) || empty($password)) {
                 $error = 'Vul je e-mailadres en wachtwoord in';
             } else {
-                $success = Auth::login($email, $password);
+                $success = Auth::attempt($email, $password);
                 
                 if ($success) {
                     // Doorverwijzen naar dashboard na succesvolle login

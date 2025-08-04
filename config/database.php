@@ -4,6 +4,6 @@ return [
     'port' => 3306,
     'database' => 'expense_tracker',
     'username' => 'root',
-    'password' => '',  // Leeg wachtwoord
+    'password' => 'root',  // MySQL wachtwoord
     'charset' => 'utf8mb4'
 ];

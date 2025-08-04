@@ -275,6 +275,29 @@ class TransactionController extends Controller {
             return;
         }
         
+        // Handle file upload voor bonnetje
+        $receiptFilename = null;
+        if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = ROOT_PATH . '/public/uploads/receipts/';
+            
+            // Maak upload directory aan als deze niet bestaat
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            $fileExtension = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (in_array($fileExtension, $allowedExtensions) && $_FILES['receipt']['size'] <= 10485760) { // 10MB max
+                $receiptFilename = uniqid() . '_' . time() . '.' . $fileExtension;
+                $uploadPath = $uploadDir . $receiptFilename;
+                
+                if (!move_uploaded_file($_FILES['receipt']['tmp_name'], $uploadPath)) {
+                    $receiptFilename = null;
+                }
+            }
+        }
+        
         // Sla de transactie op
         $transactionData = [
             'user_id' => $userId,
@@ -283,7 +306,8 @@ class TransactionController extends Controller {
             'amount' => $amount,
             'type' => $type,
             'description' => $description,
-            'date' => $date
+            'date' => $date,
+            'receipt_image' => $receiptFilename
         ];
         
         $transactionId = Transaction::create($transactionData);
@@ -507,7 +531,7 @@ class TransactionController extends Controller {
                 </div>
                 
                 <div class='bg-white shadow-md rounded-lg p-6'>
-                    <form action='{$action}' method='POST' class='space-y-6'>
+                    <form action='{$action}' method='POST' enctype='multipart/form-data' class='space-y-6'>
                         " . ($isEdit ? "<input type='hidden' name='id' value='{$transaction['id']}'>" : "") . "
                         
                         <div class='flex flex-wrap -mx-3 mb-4'>
@@ -600,6 +624,28 @@ class TransactionController extends Controller {
                                 placeholder='Voeg een beschrijving toe'>" . htmlspecialchars($descriptionValue) . "</textarea>
                         </div>
                         
+                        <div>
+                            <label class='block text-sm font-medium text-gray-700'>Bonnetje / Bewijs</label>
+                            <div class='mt-1 flex items-center'>
+                                " . ($isEdit && !empty($transaction['receipt_image']) ? "
+                                <div class='mr-4'>
+                                    <a href='/uploads/receipts/{$transaction['receipt_image']}' target='_blank' class='text-blue-600 hover:underline'>
+                                        Huidige afbeelding bekijken
+                                    </a>
+                                </div>" : "") . "
+                                <label class='relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none'>
+                                    <span>Upload een bestand</span>
+                                    <input id='receipt' name='receipt' type='file' class='sr-only' accept='image/*' capture>
+                                </label>
+                            </div>
+                            <p class='mt-2 text-sm text-gray-500'>
+                                PNG, JPG, GIF tot 10MB
+                            </p>
+                            <div id='image_preview' class='mt-2 hidden'>
+                                <img id='preview_img' src='#' alt='Voorbeeld' class='max-h-40 rounded'>
+                            </div>
+                        </div>
+                        
                         <div class='flex justify-end space-x-3 mt-6'>
                             <a href='/transactions' class='py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
                                 Annuleren
@@ -635,6 +681,40 @@ class TransactionController extends Controller {
                         }
                     });
                 });
+                
+                // Afbeeldingsvoorbeeld voor bonnetje upload
+                const receiptInput = document.getElementById('receipt');
+                const imagePreview = document.getElementById('image_preview');
+                const previewImg = document.getElementById('preview_img');
+                
+                if (receiptInput) {
+                    receiptInput.addEventListener('change', function() {
+                        if (this.files && this.files[0]) {
+                            const reader = new FileReader();
+                            
+                            reader.onload = function(e) {
+                                previewImg.src = e.target.result;
+                                imagePreview.classList.remove('hidden');
+                            }
+                            
+                            reader.readAsDataURL(this.files[0]);
+                        }
+                    });
+                    
+                    // Camera of gallerij optie voor mobiel
+                    if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+                        const captureButton = document.createElement('button');
+                        captureButton.textContent = 'Camera gebruiken';
+                        captureButton.className = 'ml-3 py-1 px-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50';
+                        
+                        captureButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            receiptInput.click();
+                        });
+                        
+                        receiptInput.parentNode.appendChild(captureButton);
+                    }
+                }
             });
             </script>
         </body>

@@ -1,4 +1,9 @@
 <?php
+// Voorkom caching
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 // Alleen fouten loggen, niet tonen
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
@@ -97,6 +102,9 @@ $router->register('/recurring/store', ['controller' => 'RecurringTransactionCont
 $router->register('/recurring/edit', ['controller' => 'RecurringTransactionController', 'action' => 'edit']);
 $router->register('/recurring/update', ['controller' => 'RecurringTransactionController', 'action' => 'update'], 'POST');
 $router->register('/recurring/delete', ['controller' => 'RecurringTransactionController', 'action' => 'delete']);
+
+// Insights routes
+$router->register('/insights', ['controller' => 'InsightsController', 'action' => 'index']);
 
 // Dispatch the request
 $router->dispatch();

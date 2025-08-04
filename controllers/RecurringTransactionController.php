@@ -627,14 +627,16 @@ class RecurringTransactionController extends Controller {
                 const month = String(nextDate.getMonth() + 1).padStart(2, '0');
                 const day = String(nextDate.getDate()).padStart(2, '0');
                 
-                nextDueDateInput.value = `${year}-${month}-${day}`;
+                // Gebruik string concatenatie in plaats van template literals om PHP-waarschuwingen te voorkomen
+                nextDueDateInput.value = year + '-' + month + '-' + day;
             }
             
             // Update volgende datum bij wijzigen frequentie of startdatum
             frequencySelect.addEventListener('change', updateNextDueDate);
             startDateInput.addEventListener('change', updateNextDueDate);
         });
-        </script>";
+        </script>
+        ";
         
         echo "</div>";
     }

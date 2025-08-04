@@ -23,10 +23,20 @@ $pageTitle = $pageTitle ?? 'Dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Financieel Beheer">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Financiën">
     <meta name="theme-color" content="#2563EB">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- iOS Splash Screens -->
+    <meta name="apple-touch-fullscreen" content="yes">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/app-icon-192.png">
+    <link rel="apple-touch-icon-precomposed" href="/assets/images/app-icon-192.png">
     <title>Financieel Beheer - <?= htmlspecialchars($pageTitle) ?></title>
     
     <!-- Web App Manifest -->
@@ -193,6 +203,26 @@ $pageTitle = $pageTitle ?? 'Dashboard';
                 }, 500);
             }
         }, 5000);
+        
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(function(registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+        
+        // Add to homescreen prompt (iOS Safari doesn't support this but Android does)
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
     </script>
     <?php endif; ?>
 </body>

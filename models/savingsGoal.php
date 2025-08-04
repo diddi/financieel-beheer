@@ -172,6 +172,7 @@ class SavingsGoal {
         
         return [
             'progress' => min(100, $progress),
+            'percentage' => min(100, round($progress)),
             'days_remaining' => $daysRemaining,
             'amount_per_day' => $amountPerDay,
             'remaining_amount' => $remainingAmount,

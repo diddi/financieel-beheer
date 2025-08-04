@@ -51,4 +51,28 @@ function renderWithAuthLayout($content, $pageTitle = 'Login') {
     
     // Include de auth layout
     include_once($rootPath . '/views/layouts/auth_wrapper.php');
+}
+
+/**
+ * Render de 404 pagina niet gevonden
+ * 
+ * @return void
+ */
+function render404Page() {
+    // HTTP status code instellen
+    http_response_code(404);
+    
+    // Bepaal het root path voor het laden van views
+    $rootPath = defined('ROOT_PATH') ? ROOT_PATH : dirname(dirname(__FILE__));
+    
+    // Laad de 404 view en gebruik de app layout
+    ob_start();
+    include_once($rootPath . '/views/errors/404.php');
+    $content = ob_get_clean();
+    
+    // Render met de app layout
+    renderWithAppLayout($content, 'Pagina niet gevonden');
+    
+    // Stop de verdere uitvoering
+    exit;
 } 
