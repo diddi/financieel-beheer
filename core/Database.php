@@ -6,11 +6,21 @@ class Database {
     private $connection;
     
     private function __construct() {
-        $config = require_once __DIR__ . '/../config/database.php';
+        // Use Render config if on production, otherwise local config
+        if (getenv('DATABASE_URL')) {
+            $config = require_once __DIR__ . '/../config/database_render.php';
+        } else {
+            $config = require_once __DIR__ . '/../config/database.php';
+        }
         
         try {
-            // Verbeter de DSN voor macOS
-            $dsn = 'mysql:host=' . $config['host'] . ';port=' . ($config['port'] ?? 3306) . ';dbname=' . $config['database'] . ';charset=' . $config['charset'];
+            // Build DSN based on driver
+            if (isset($config['driver']) && $config['driver'] === 'pgsql') {
+                $dsn = 'pgsql:host=' . $config['host'] . ';port=' . ($config['port'] ?? 5432) . ';dbname=' . $config['database'];
+            } else {
+                $dsn = 'mysql:host=' . $config['host'] . ';port=' . ($config['port'] ?? 3306) . ';dbname=' . $config['database'] . ';charset=' . ($config['charset'] ?? 'utf8mb4');
+            }
+            
             $options = [
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
